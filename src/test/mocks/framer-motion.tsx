@@ -31,6 +31,9 @@ export const motion = {
   h1: createMotionComponent('h1'),
   h2: createMotionComponent('h2'),
   a: createMotionComponent('a'),
+  path: createMotionComponent('path'),
+  circle: createMotionComponent('circle'),
+  svg: createMotionComponent('svg'),
 };
 
 export function AnimatePresence({ children }: { children?: ReactNode }) {
@@ -57,4 +60,8 @@ export function useTransform() {
 
 export function useSpring() {
   return mockMotionValue;
+}
+
+export function useMotionValue(initial: number = 0) {
+  return { ...mockMotionValue, get: () => initial };
 }

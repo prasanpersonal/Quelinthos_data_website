@@ -4,15 +4,15 @@ import Portfolio from '../Portfolio.tsx';
 import { allCategories } from '../../data/categories/index.ts';
 
 describe('Portfolio', () => {
-  it('renders "PROBLEMS WE SOLVE" heading', () => {
+  it('renders "THE INSIGHT SUITE" heading', () => {
     render(<Portfolio />);
-    expect(screen.getByText('PROBLEMS WE SOLVE')).toBeInTheDocument();
+    expect(screen.getByText('THE INSIGHT SUITE')).toBeInTheDocument();
   });
 
   it('displays correct pain point count text', () => {
     render(<Portfolio />);
     const total = allCategories.reduce((s, c) => s + c.painPoints.length, 0);
-    expect(screen.getByText(new RegExp(`${total} specific data pain points`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${total} Pain Points Identified`))).toBeInTheDocument();
   });
 
   it('renders all 10 category cards', () => {

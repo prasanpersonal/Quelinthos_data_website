@@ -1,175 +1,180 @@
-import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
-import { useRef } from 'react';
-import { ArrowDown } from 'lucide-react';
-import { homeContent } from '../data/home.ts';
-import IconResolver from './IconResolver.tsx';
+import { motion, useScroll, useTransform, useSpring, useMotionValue } from 'framer-motion';
+import { useRef, useEffect, useState } from 'react';
 
 const Home = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const { scrollYProgress } = useScroll({
         target: containerRef,
-        offset: ["start start", "end end"]
+        offset: ["start start", "end start"]
     });
 
-    const smoothScroll = useSpring(scrollYProgress, {
-        stiffness: 100,
-        damping: 30,
-        restDelta: 0.001
-    });
+    const scrollY = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
+    const opacity = useTransform(scrollY, [0, 0.4], [1, 0]);
+    const scale = useTransform(scrollY, [0, 0.4], [1, 0.8]);
+    const y = useTransform(scrollY, [0, 0.4], [0, 150]);
 
-    // Page 1 Transforms
-    const opacityP1 = useTransform(smoothScroll, [0, 0.25], [1, 0]);
-    const scaleP1 = useTransform(smoothScroll, [0, 0.25], [1, 0.9]);
-    const yP1 = useTransform(smoothScroll, [0, 0.25], [0, -100]);
+    // Parallax Mouse Effect
+    const mouseX = useMotionValue(0);
+    const mouseY = useMotionValue(0);
 
-    // Page 2 Transforms
-    const opacityP2 = useTransform(smoothScroll, [0.35, 0.45, 0.55, 0.65], [0, 1, 1, 0]);
-    const scaleP2 = useTransform(smoothScroll, [0.35, 0.5, 0.65], [0.8, 1, 0.8]);
-    const yP2 = useTransform(smoothScroll, [0.35, 0.65], [100, -100]);
+    const [dataPoints, setDataPoints] = useState<number[]>([]);
 
-    const { hero, flow } = homeContent;
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            const { innerWidth, innerHeight } = window;
+            mouseX.set((e.clientX / innerWidth) - 0.5);
+            mouseY.set((e.clientY / innerHeight) - 0.5);
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+
+        // Generate random data for graphs
+        setDataPoints(Array.from({ length: 20 }, () => Math.random()));
+
+        return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, [mouseX, mouseY]);
+
+    const bgMoveX = useTransform(mouseX, [-0.5, 0.5], ["-2%", "2%"]);
+    const bgMoveY = useTransform(mouseY, [-0.5, 0.5], ["-2%", "2%"]);
+    const graphRotateY = useTransform(mouseX, [-0.5, 0.5], [-15, 15]);
+    const graphRotateX = useTransform(mouseY, [-0.5, 0.5], [10, -10]);
 
     return (
-        <div ref={containerRef} className="relative h-[250vh] celestial-bg">
-            <div className="sticky top-0 h-screen w-full overflow-hidden">
+        <div ref={containerRef} className="relative h-screen min-h-[900px] w-full overflow-hidden flex flex-col items-center justify-center perspective-px">
+            {/* Background - Deep Space Parallax (Restored from Celestial Theme) */}
+            <motion.div
+                style={{ x: bgMoveX, y: bgMoveY }}
+                className="absolute inset-[-5%] w-[110%] h-[110%] bg-celestial-900 z-0"
+            >
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a1c3b] via-[#050a14] to-black" />
+                <div className="absolute inset-0 opacity-20 bg-[size:40px_40px] bg-[linear-gradient(rgba(0,243,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,243,255,0.03)_1px,transparent_1px)]" />
+                {/* Random Stars */}
+                {[...Array(50)].map((_, i) => (
+                    <div
+                        key={i}
+                        className="absolute rounded-full bg-white animate-pulse"
+                        style={{
+                            top: `${Math.random() * 100}%`,
+                            left: `${Math.random() * 100}%`,
+                            width: Math.random() < 0.3 ? '3px' : '1px',
+                            height: Math.random() < 0.3 ? '3px' : '1px',
+                            opacity: Math.random() * 0.7 + 0.3,
+                            animationDuration: `${Math.random() * 3 + 2}s`
+                        }}
+                    />
+                ))}
+            </motion.div>
 
-                {/* SECTION 1: THE HERO */}
-                <motion.section
-                    style={{ opacity: opacityP1, scale: scaleP1, y: yP1 }}
-                    className="absolute inset-0 flex items-center justify-center p-6"
-                >
-                    <div className="absolute inset-0 z-0">
-                        <div
-                            className="absolute inset-0 bg-cover bg-center mask-gradient opacity-100"
-                            style={{ backgroundImage: 'var(--image-prediction-machine)' }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-celestial-900/10 to-celestial-900" />
-
-                        {/* DYNAMIC ORBITAL RING STRUCTURE */}
-                        <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[800px] h-[300px] z-10 pointer-events-none perspective-1000">
-                            {/* Primary Outer Ring */}
-                            <div className="absolute inset-0 border-[4px] border-white/60 rounded-[100%] animate-[spin_20s_linear_infinite] shadow-[0_0_50px_rgba(255,255,255,0.5)]"
-                                style={{ transform: 'rotateX(75deg)' }}
-                            ></div>
-
-                            {/* Counter-Rotating Inner Ring */}
-                            <div className="absolute inset-[10%] border-[2px] border-neon-blue/80 rounded-[100%] animate-[spin_25s_linear_infinite_reverse] shadow-[0_0_30px_rgba(0,243,255,0.4)]"
-                                style={{ transform: 'rotateX(75deg)' }}
-                            >
-                                <div className="absolute top-0 left-1/2 w-4 h-4 bg-neon-blue rounded-full blur-[2px]" />
-                            </div>
-
-                            {/* Data Particles Ring */}
-                            <div className="absolute inset-[-10%] border-[1px] border-dashed border-neon-gold/50 rounded-[100%] animate-[spin_40s_linear_infinite]"
-                                style={{ transform: 'rotateX(75deg)' }}
-                            ></div>
-                        </div>
-
-                        {/* SCANLINE */}
-                        <div className="absolute inset-0 pointer-events-none opacity-10 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-10 bg-[size:100%_2px,3px_100%]" />
-                    </div>
-
-                    <div className="relative z-10 text-center max-w-5xl mt-32">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 1.5, ease: "easeOut" }}
-                            className="mb-8 inline-block"
-                        >
-                            <span className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-neon-blue text-xs font-bold tracking-[0.2em] uppercase backdrop-blur-md">
-                                {hero.badge}
-                            </span>
-                        </motion.div>
-                        <motion.h1
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 1, delay: 0.5 }}
-                            className="text-8xl md:text-[10rem] font-bold mb-8 tracking-tighter leading-none"
-                        >
-                            <span className="text-white text-glow block">{hero.heading[0]}</span>
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-blue via-neon-purple to-neon-gold text-glow-purple">
-                                {hero.heading[1]}
-                            </span>
-                        </motion.h1>
-                        <motion.p
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 1, delay: 1 }}
-                            className="text-xl md:text-2xl text-white/70 max-w-2xl mx-auto leading-relaxed font-light"
-                        >
-                            {hero.subheading}
-                        </motion.p>
-                    </div>
-
+            {/* Central Content */}
+            <motion.div
+                style={{ opacity, scale, y }}
+                className="relative z-10 flex flex-col items-center text-center w-full max-w-6xl px-6"
+            >
+                {/* DYNAMIC HOLOGRAPHIC GRAPHS (Replacing Mountain Triangles) */}
+                <div className="relative w-[800px] h-[450px] mb-8 perspective-1000 flex items-center justify-center">
                     <motion.div
-                        animate={{ y: [0, 12, 0] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="absolute bottom-12 flex flex-col items-center gap-2 text-white/30"
+                        style={{ rotateY: graphRotateY, rotateX: graphRotateX }}
+                        className="relative w-full h-full transform-style-3d flex items-end justify-center gap-2 pb-20"
                     >
-                        <span className="text-[10px] tracking-[0.3em] uppercase">{hero.scrollCta}</span>
-                        <ArrowDown size={20} />
-                    </motion.div>
-                </motion.section>
-
-                {/* SECTION 2: THE FLOW */}
-                <motion.section
-                    style={{ opacity: opacityP2, scale: scaleP2, y: yP2 }}
-                    className="absolute inset-0 flex items-center justify-center p-6 pointer-events-none"
-                >
-                    <div className="absolute inset-0 z-0 overflow-hidden opacity-70">
-                        {/* Animated grid background */}
-                        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,243,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,243,255,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
-                        <div
-                            className="absolute inset-0 bg-cover bg-center brightness-90 contrast-110"
-                            style={{ backgroundImage: 'var(--image-sme-office)' }}
-                        />
-                    </div>
-
-                    <div className="container mx-auto grid lg:grid-cols-2 gap-20 items-center relative z-10">
-                        <div className="space-y-10">
-                            <h2 className="text-6xl font-bold leading-tight">
-                                <span className="text-white block">{flow.heading[0]}</span>
-                                <span className="text-neon-gold text-glow">{flow.heading[1]}</span>
-                            </h2>
-                            <p className="text-lg text-white/60 leading-relaxed max-w-lg">
-                                {flow.copy}
-                            </p>
-
-                            <div className="grid grid-cols-2 gap-6 pointer-events-auto">
-                                {flow.featurePills.map((item, i) => (
-                                    <div key={i} className="glass-panel p-5 rounded-2xl flex items-center gap-4 group hover:bg-white/10 transition-all duration-500">
-                                        <div className={`p-3 rounded-xl bg-black/40 ${item.color} group-hover:scale-110 transition-transform`}>
-                                            <IconResolver name={item.icon} size={24} />
-                                        </div>
-                                        <span className="text-sm font-semibold text-white/90">{item.label}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="relative group perspective-1000 hidden lg:block">
+                        {/* 3D Bar Chart - Dynamic Columns */}
+                        {dataPoints.map((value, i) => (
                             <motion.div
-                                className="glass-panel aspect-square rounded-[2.5rem] p-8 relative overflow-hidden flex flex-col justify-between border-neon-blue/20"
-                                whileHover={{ rotateY: -10, rotateX: 5 }}
+                                key={i}
+                                initial={{ height: "10%" }}
+                                animate={{
+                                    height: [`${value * 20 + 20}%`, `${value * 80 + 20}%`, `${value * 20 + 20}%`]
+                                }}
+                                transition={{
+                                    duration: 3 + Math.random() * 2,
+                                    repeat: Infinity,
+                                    ease: "easeInOut",
+                                    delay: i * 0.1
+                                }}
+                                className="w-8 relative group"
+                                style={{ transformStyle: "preserve-3d", transform: `translateZ(${Math.sin(i) * 50}px)` }}
                             >
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-neon-blue/5 blur-[80px] rounded-full" />
-                                <div className="space-y-4">
-                                    <div className="w-12 h-1 bg-neon-blue" />
-                                    <div className="text-3xl font-bold text-white uppercase tracking-widest">FEED_01</div>
-                                    <div className="text-white/40 font-mono text-xs">AWAITING SIGNAL...</div>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex gap-2">
-                                        {[1, 2, 3].map(i => <div key={i} className="w-2 h-2 rounded-full bg-neon-blue/30 animate-pulse" />)}
-                                    </div>
-                                    <div className="text-neon-blue text-xs font-bold font-mono">ENCRYPTED_LINK_ACTIVE</div>
+                                {/* Front Face */}
+                                <div className={`absolute inset-0 w-full h-full bg-gradient-to-t ${i % 2 === 0 ? 'from-neon-blue/20 to-neon-blue' : 'from-neon-purple/20 to-neon-purple'} border-t border-white/50 opacity-80 backdrop-blur-sm rounded-t-sm`} />
+                                {/* Top Glow */}
+                                <div className={`absolute top-0 w-full h-1 ${i % 2 === 0 ? 'bg-neon-blue' : 'bg-neon-purple'} shadow-[0_0_20px_currentColor]`} />
+                                {/* Value Tag on Hover */}
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-xs font-mono text-white transition-opacity bg-black/80 px-2 py-1 rounded">
+                                    {Math.round(value * 100)}%
                                 </div>
                             </motion.div>
-                        </div>
-                    </div>
-                </motion.section>
+                        ))}
 
-            </div>
+                        {/* Floating Trend Line (Spline) */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-[0_0_10px_rgba(251,191,36,0.6)]" style={{ transform: "translateZ(60px)" }}>
+                            <motion.path
+                                d="M0,350 Q200,350 400,100 T800,350"
+                                fill="none"
+                                stroke="#fbbf24"
+                                strokeWidth="3"
+                                strokeDasharray="10 10"
+                                initial={{ pathLength: 0, opacity: 0 }}
+                                animate={{ pathLength: 1, opacity: 1, strokeDashoffset: [0, -20] }}
+                                transition={{
+                                    pathLength: { duration: 2, ease: "easeInOut" },
+                                    strokeDashoffset: { duration: 1, repeat: Infinity, ease: "linear" }
+                                }}
+                            />
+                            {/* Data Points on Line */}
+                            {[100, 400, 700].map((x, i) => (
+                                <motion.circle
+                                    key={i}
+                                    cx={x}
+                                    cy={i === 1 ? 100 : 250} // Approximate animation positions
+                                    r="4"
+                                    fill="#fbbf24"
+                                    animate={{ r: [4, 6, 4] }}
+                                    transition={{ duration: 1, repeat: Infinity }}
+                                />
+                            ))}
+                        </svg>
+
+                        {/* Floor Grid */}
+                        <div className="absolute bottom-0 w-[120%] h-[300px] bg-[linear-gradient(to_bottom,transparent,rgba(0,243,255,0.1))] transform -rotate-x-90 translate-y-[150px] scale-y-50 pointer-events-none" />
+                    </motion.div>
+                </div>
+
+                {/* Typography with Glitch Reveal */}
+                <motion.div
+                    initial={{ opacity: 0, clipPath: "inset(0 100% 0 0)" }}
+                    animate={{ opacity: 1, clipPath: "inset(0 0 0 0)" }}
+                    transition={{ duration: 1.5, ease: "circOut", delay: 0.2 }}
+                >
+                    <h1 className="text-6xl md:text-8xl font-black mb-8 tracking-tighter leading-none text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/50 drop-shadow-[0_10px_30px_rgba(255,255,255,0.2)]">
+                        LEAVE THE <span className="text-neon-blue inline-block animate-pulse">PAIN</span> OF <br />
+                        DATA TO US
+                    </h1>
+                </motion.div>
+
+                <motion.p
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 1, delay: 1 }}
+                    className="text-2xl md:text-3xl text-neon-purple/90 font-light tracking-wide mb-12"
+                >
+                    TO GIVE YOU <span className="font-semibold text-neon-gold border-b border-neon-gold/30 pb-1">JOY OF INSIGHTS</span>
+                </motion.p>
+
+                {/* Scroll Indicator */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1, y: [0, 15, 0] }}
+                    transition={{ delay: 1.5, y: { duration: 1.5, repeat: Infinity } }}
+                    className="group cursor-pointer flex flex-col items-center gap-2"
+                    onClick={() => document.getElementById('portfolio')?.scrollIntoView({ behavior: 'smooth' })}
+                >
+                    <div className="w-[1px] h-12 bg-gradient-to-b from-transparent via-neon-blue to-transparent group-hover:h-20 transition-all duration-500" />
+                    <span className="text-neon-blue text-[10px] tracking-[0.5em] uppercase font-bold opacity-70 group-hover:opacity-100 transition-opacity">
+                        View Analysis
+                    </span>
+                </motion.div>
+            </motion.div>
+
+            {/* Ambient Fog at Bottom */}
+            <div className="absolute bottom-0 w-full h-[30vh] bg-gradient-to-t from-celestial-900 via-celestial-900/80 to-transparent pointer-events-none z-0" />
         </div>
     );
 };

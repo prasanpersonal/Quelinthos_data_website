@@ -46,7 +46,7 @@ describe('CategoryCard', () => {
 
   it('renders pain point count badge', () => {
     render(<CategoryCard category={mockCategory} index={0} onClick={() => {}} />);
-    expect(screen.getByText('1 pain point identified')).toBeInTheDocument();
+    expect(screen.getByText('1 pain point')).toBeInTheDocument();
   });
 
   it('calls onClick when clicked', () => {

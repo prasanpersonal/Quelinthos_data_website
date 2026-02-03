@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import IconResolver from '../IconResolver.tsx';
-import CostTicker from './CostTicker.tsx';
 import type { Category } from '../../data/types.ts';
 import { ACCENT_STYLES } from '../../data/constants.ts';
 import type { AccentColor } from '../../data/constants.ts';
@@ -24,7 +23,7 @@ function getAggregatedCostRange(category: Category): string {
   const totalLow = costs.reduce((s, c) => s + c.low, 0);
   const totalHigh = costs.reduce((s, c) => s + c.high, 0);
 
-  const formatM = (v: number) => v >= 1 ? `$${v.toFixed(0)}M` : `$${(v * 1000).toFixed(0)}K`;
+  const formatM = (v: number) => v >= 1 ? `$${v.toFixed(1)}M` : `$${(v * 1000).toFixed(0)}K`;
   return `${formatM(totalLow)} – ${formatM(totalHigh)}`;
 }
 
@@ -43,40 +42,45 @@ const CategoryCard = ({ category, index, onClick }: CategoryCardProps) => {
       transition={{ duration: 0.5, delay: index * 0.08, ease: 'easeOut' }}
       whileHover={{ y: -10, scale: 1.02 }}
       onClick={onClick}
-      className={`glass-panel rounded-2xl overflow-hidden border border-white/5 ${borderClass} transition-all duration-500 cursor-pointer group relative ${
-        category.painPoints.length >= 3 ? 'lg:col-span-2' : ''
-      }`}
+      className={`glass-panel rounded-2xl overflow-hidden border border-white/5 ${borderClass} transition-all duration-500 cursor-pointer group relative ${category.painPoints.length >= 3 ? 'lg:col-span-2' : ''
+        }`}
     >
       {/* Top gradient border */}
       <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${gradient}`} />
 
-      <div className="p-6 lg:p-8 relative">
-        {/* Background number */}
-        <div className="absolute top-4 right-6 text-white/[0.03] text-8xl font-black">
-          {String(category.number).padStart(2, '0')}
+      <div className="p-6 lg:p-8 relative h-full flex flex-col justify-between">
+        <div>
+          {/* Background number */}
+          <div className="absolute top-4 right-6 text-white/[0.03] text-8xl font-black">
+            {String(category.number).padStart(2, '0')}
+          </div>
+
+          <div className="flex items-start gap-4 mb-6">
+            <div className={`p-3 rounded-xl bg-black/40 ${textClass} group-hover:scale-110 transition-transform`}>
+              <IconResolver name={category.icon} size={24} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold text-white group-hover:text-neon-blue transition-colors duration-300">
+                {category.title}
+              </h3>
+              <p className="text-sm text-white/40 mt-1 leading-relaxed">
+                {category.description}
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-start gap-4 mb-6">
-          <div className={`p-3 rounded-xl bg-black/40 ${textClass} group-hover:scale-110 transition-transform`}>
-            <IconResolver name={category.icon} size={24} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-bold text-white group-hover:text-neon-blue transition-colors duration-300">
-              {category.title}
-            </h3>
-            <p className="text-sm text-white/40 mt-1 leading-relaxed">
-              {category.description}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between">
+        <div className="flex items-end justify-between mt-6 pt-6 border-t border-white/5">
           <span className={`text-xs font-bold px-3 py-1 rounded-full bg-white/5 border border-white/10 ${textClass}`}>
-            {category.painPoints.length} pain point{category.painPoints.length !== 1 ? 's' : ''} identified
+            {category.painPoints.length} pain point{category.painPoints.length !== 1 ? 's' : ''}
           </span>
-          <span className="text-xs text-white/30">
-            <CostTicker value={`${costRange}/yr`} className="text-xs text-red-400/70" />
-          </span>
+
+          <div className="flex flex-col items-end group-hover:scale-105 transition-transform duration-300 origin-right">
+            <span className="text-[10px] text-white/30 uppercase tracking-widest font-bold mb-1">Impact</span>
+            <span className="text-xl lg:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600 drop-shadow-[0_0_15px_rgba(239,68,68,0.4)]">
+              {costRange}<span className="text-xs lg:text-sm font-medium text-white/40 ml-1 align-baseline">/yr</span>
+            </span>
+          </div>
         </div>
       </div>
     </motion.div>
