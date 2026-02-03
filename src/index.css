@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+html {
+  scroll-behavior: smooth;
+}
+
+@theme {
+  --color-celestial-900: #020205;
+  /* Deep Space Black */
+  --color-celestial-800: #0a0a14;
+  /* Void Indigo */
+  --color-celestial-500: #8b5cf6;
+  /* Cosmic Violet */
+  --color-celestial-400: #c4b5fd;
+  /* Nebula Mist */
+  --color-celestial-300: #f8fafc;
+  /* Pure Starlight */
+
+  /* Unique Future Accents */
+  --color-neon-blue: #00f3ff;
+  /* CYBER CYAN */
+  --color-neon-purple: #a855f7;
+  /* ELECTRIC PURPLE */
+  --color-neon-gold: #fbbf24;
+  /* STELLAR GOLD */
+
+  --font-sans: "Inter", system-ui, sans-serif;
+  --image-prediction-machine: url('/hero-bg-daylight-pure.png');
+  --image-sme-office: url('/sme-office-v2.png');
+
+  --animate-float: float 8s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-celestial-spin: celestial-spin 20s linear infinite;
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+
+    50% {
+      transform: translateY(-20px) rotate(1deg);
+    }
+  }
+
+  @keyframes pulse-glow {
+
+    0%,
+    100% {
+      opacity: 1;
+      filter: drop-shadow(0 0 8px rgba(0, 243, 255, 0.4));
+    }
+
+    50% {
+      opacity: 0.8;
+      filter: drop-shadow(0 0 25px rgba(0, 243, 255, 0.7));
+    }
+  }
+
+  @keyframes celestial-spin {
+    from {
+      transform: rotate(0deg);
+    }
+
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+
+  .glass-nav {
+    @apply bg-celestial-900/40 backdrop-blur-2xl border border-white/10;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 15px rgba(0, 243, 255, 0.5), 0 0 30px rgba(0, 243, 255, 0.2);
+  }
+
+  .text-glow-purple {
+    text-shadow: 0 0 15px rgba(168, 85, 247, 0.5), 0 0 30px rgba(168, 85, 247, 0.3);
+  }
+
+  .celestial-bg {
+    background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.15), transparent),
+      radial-gradient(circle at bottom left, rgba(0, 243, 255, 0.1), transparent),
+      #020205;
+  }
+
+  .mask-gradient {
+    mask-image: linear-gradient(to bottom, black 80%, transparent);
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
