@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a1a"/>
+      <stop offset="100%" stop-color="#1a1c3b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f3ff"/>
+      <stop offset="100%" stop-color="#7b61ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Grid pattern -->
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,243,255,0.05)" stroke-width="1"/>
+  </pattern>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+
+  <!-- Logo Q -->
+  <text x="100" y="200" font-family="system-ui, sans-serif" font-size="120" font-weight="800" fill="url(#accent)">Q</text>
+
+  <!-- Company name -->
+  <text x="100" y="320" font-family="system-ui, sans-serif" font-size="72" font-weight="700" fill="white">QUELINTHOS</text>
+  <text x="100" y="400" font-family="system-ui, sans-serif" font-size="72" font-weight="700" fill="url(#accent)">DYNAMICS</text>
+
+  <!-- Tagline -->
+  <text x="100" y="500" font-family="system-ui, sans-serif" font-size="32" fill="rgba(255,255,255,0.7)">Data Consulting That Delivers</text>
+
+  <!-- Stats bar -->
+  <rect x="100" y="540" width="200" height="4" rx="2" fill="url(#accent)" opacity="0.8"/>
+  <text x="100" y="580" font-family="system-ui, sans-serif" font-size="20" fill="rgba(255,255,255,0.5)">10 Industries • 26 Solutions • Real ROI</text>
+</svg>
