@@ -41,6 +41,59 @@ export interface ImplementationGuide {
   toolsUsed: string[];
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Solution Types — Easy Win (ChatGPT/Claude + Zapier) & Advanced (Multi-Agent)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AICodeLanguage = 'python' | 'yaml' | 'json';
+
+export interface AICodeSnippet {
+  language: AICodeLanguage;
+  title: string;
+  description: string;
+  code: string;
+}
+
+export interface AIImplementationStep {
+  stepNumber: number;
+  title: string;
+  description: string;
+  codeSnippets?: AICodeSnippet[];
+  toolsUsed: string[];
+}
+
+export interface AIEasyWinGuide {
+  overview: string;
+  estimatedMonthlyCost: string;
+  primaryTools: string[];
+  alternativeTools: string[];
+  steps: AIImplementationStep[];
+}
+
+export interface AgentDefinition {
+  name: string;
+  role: string;
+  goal: string;
+  tools: string[];
+}
+
+export interface OrchestrationConfig {
+  framework: string;
+  pattern: string;
+  stateManagement: string;
+}
+
+export interface AIAdvancedGuide {
+  overview: string;
+  estimatedMonthlyCost: string;
+  architecture: string;
+  agents: AgentDefinition[];
+  orchestration: OrchestrationConfig;
+  steps: AIImplementationStep[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface PainPointMetrics {
   annualCostRange: string;
   roi: string;
@@ -56,6 +109,8 @@ export interface PainPoint {
   summary: string;
   price: PriceFramework;
   implementation: ImplementationGuide;
+  aiEasyWin: AIEasyWinGuide;
+  aiAdvanced: AIAdvancedGuide;
   metrics: PainPointMetrics;
   tags: string[];
 }

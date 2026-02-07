@@ -847,6 +847,1881 @@ ORDER BY week DESC, sla_status;`,
         ],
         toolsUsed: ['PostgreSQL', 'Python', 'pandas', 'SQLAlchemy', 'pytest', 'Docker', 'GitHub Actions', 'cron / Airflow', 'Slack API'],
       },
+      aiEasyWin: {
+        overview:
+          'Use ChatGPT or Claude to analyze HR metric discrepancies from exported data, then automate reconciliation alerts with Zapier connecting your HRIS, payroll, and Slack for drift notifications without custom code.',
+        estimatedMonthlyCost: '$100 - $200/month',
+        primaryTools: ['ChatGPT Plus ($20/mo)', 'Zapier Pro ($29.99/mo)', 'Google Sheets (free)'],
+        alternativeTools: ['Claude Pro ($20/mo)', 'Make ($10.59/mo)', 'Lattice AI ($6/user/mo)'],
+        steps: [
+          {
+            stepNumber: 1,
+            title: 'Data Extraction & Preparation',
+            description:
+              'Export headcount data from HRIS and payroll systems into structured formats for AI analysis. Set up automated weekly exports via Zapier to Google Sheets.',
+            toolsUsed: ['Zapier', 'Google Sheets', 'BambooHR', 'ADP'],
+            codeSnippets: [
+              {
+                language: 'json',
+                title: 'Zapier HRIS Export Configuration',
+                description:
+                  'Zapier trigger configuration to automatically export BambooHR employee data weekly to Google Sheets for reconciliation analysis.',
+                code: `{
+  "zapier_workflow": {
+    "name": "Weekly HRIS Headcount Export",
+    "trigger": {
+      "app": "Schedule by Zapier",
+      "event": "Every Week",
+      "config": {
+        "day_of_week": "Monday",
+        "time": "06:00",
+        "timezone": "America/New_York"
+      }
+    },
+    "actions": [
+      {
+        "step": 1,
+        "app": "BambooHR",
+        "event": "Get All Employees",
+        "config": {
+          "fields": [
+            "id",
+            "displayName",
+            "department",
+            "jobTitle",
+            "employmentStatus",
+            "hireDate",
+            "terminationDate"
+          ],
+          "filter": "status=active"
+        }
+      },
+      {
+        "step": 2,
+        "app": "Google Sheets",
+        "event": "Create Spreadsheet Row(s)",
+        "config": {
+          "spreadsheet_id": "{{HR_METRICS_SHEET_ID}}",
+          "worksheet": "HRIS_Headcount",
+          "clear_existing": true,
+          "add_timestamp_column": true,
+          "columns": {
+            "A": "{{employee_id}}",
+            "B": "{{display_name}}",
+            "C": "{{department}}",
+            "D": "{{employment_status}}",
+            "E": "{{hire_date}}",
+            "F": "{{export_timestamp}}"
+          }
+        }
+      }
+    ]
+  }
+}`,
+              },
+              {
+                language: 'json',
+                title: 'Payroll Data Export Configuration',
+                description:
+                  'Companion Zapier workflow to export ADP payroll headcount data to the same Google Sheet for cross-system comparison.',
+                code: `{
+  "zapier_workflow": {
+    "name": "Weekly Payroll Headcount Export",
+    "trigger": {
+      "app": "Schedule by Zapier",
+      "event": "Every Week",
+      "config": {
+        "day_of_week": "Monday",
+        "time": "06:30",
+        "timezone": "America/New_York"
+      }
+    },
+    "actions": [
+      {
+        "step": 1,
+        "app": "ADP Workforce Now",
+        "event": "Get Workers",
+        "config": {
+          "status_filter": ["active", "leave"],
+          "fields": [
+            "workerID",
+            "legalName",
+            "departmentCode",
+            "payStatus",
+            "lastPayDate"
+          ]
+        }
+      },
+      {
+        "step": 2,
+        "app": "Google Sheets",
+        "event": "Create Spreadsheet Row(s)",
+        "config": {
+          "spreadsheet_id": "{{HR_METRICS_SHEET_ID}}",
+          "worksheet": "Payroll_Headcount",
+          "clear_existing": true,
+          "add_timestamp_column": true,
+          "columns": {
+            "A": "{{worker_id}}",
+            "B": "{{legal_name}}",
+            "C": "{{department_code}}",
+            "D": "{{pay_status}}",
+            "E": "{{last_pay_date}}",
+            "F": "{{export_timestamp}}"
+          }
+        }
+      }
+    ]
+  }
+}`,
+              },
+            ],
+          },
+          {
+            stepNumber: 2,
+            title: 'AI-Powered Analysis',
+            description:
+              'Use ChatGPT or Claude to analyze the exported headcount data, identify discrepancies between HRIS and payroll, and generate actionable reconciliation reports.',
+            toolsUsed: ['ChatGPT Plus', 'Claude Pro'],
+            codeSnippets: [
+              {
+                language: 'yaml',
+                title: 'HR Metric Reconciliation Prompt Template',
+                description:
+                  'Structured prompt for ChatGPT/Claude to analyze headcount discrepancies and generate a prioritized reconciliation report.',
+                code: `hr_metric_reconciliation_prompt:
+  system_context: |
+    You are an HR Analytics specialist helping reconcile headcount
+    discrepancies between HRIS and payroll systems. Your analysis should
+    be thorough, actionable, and prioritized by business impact.
+
+  user_prompt_template: |
+    ## HR Metric Reconciliation Analysis Request
+
+    I have exported headcount data from two systems that should match:
+
+    ### HRIS Data (BambooHR) - {{hris_count}} records
+    \`\`\`csv
+    {{hris_data_sample}}
+    \`\`\`
+
+    ### Payroll Data (ADP) - {{payroll_count}} records
+    \`\`\`csv
+    {{payroll_data_sample}}
+    \`\`\`
+
+    Please analyze and provide:
+
+    1. **Headcount Variance Summary**
+       - Total HRIS count vs Payroll count
+       - Percentage difference and severity assessment
+       - Department-level breakdown of mismatches
+
+    2. **Discrepancy Categories**
+       - Employees in HRIS but not Payroll (potential payroll setup issues)
+       - Employees in Payroll but not HRIS (potential ghost employees)
+       - Status mismatches (active in one, terminated in other)
+
+    3. **Root Cause Hypotheses**
+       - Timing differences (recent hires/terms not synced)
+       - Definition differences (contractor classification)
+       - Data entry errors
+
+    4. **Prioritized Action Items**
+       - High priority: Compliance/audit risks
+       - Medium priority: Cost implications
+       - Low priority: Data hygiene improvements
+
+    5. **Recommended Process Improvements**
+       - Preventive measures to reduce future discrepancies
+
+  expected_output_format: |
+    Structured markdown report with:
+    - Executive summary (2-3 sentences)
+    - Detailed findings by category
+    - Action items table with owner, priority, deadline
+    - Metric definitions for standardization`,
+              },
+              {
+                language: 'yaml',
+                title: 'Engagement Score Bias Analysis Prompt',
+                description:
+                  'Prompt template for analyzing engagement survey response bias and calculating adjusted scores.',
+                code: `engagement_bias_analysis_prompt:
+  system_context: |
+    You are a People Analytics expert specializing in survey methodology
+    and response bias correction. Help identify and adjust for non-response
+    bias in employee engagement surveys.
+
+  user_prompt_template: |
+    ## Engagement Survey Bias Analysis
+
+    Our latest engagement survey has potential response bias issues:
+
+    ### Survey Response Data by Department
+    \`\`\`csv
+    department,headcount,respondents,response_rate,raw_avg_score
+    {{survey_data}}
+    \`\`\`
+
+    ### Historical Benchmark
+    - Company-wide average response rate: {{historical_response_rate}}%
+    - Previous period average score: {{previous_score}}
+
+    Please analyze:
+
+    1. **Response Rate Analysis**
+       - Identify departments with statistically low response rates
+       - Flag departments where results may not be representative
+       - Calculate confidence intervals for each department score
+
+    2. **Bias Adjustment Calculation**
+       - Apply non-response bias correction using the assumption that
+         non-respondents score at the 25th percentile of respondents
+       - Show original vs adjusted scores
+       - Highlight departments where adjustment changes the narrative
+
+    3. **Confidence Flags**
+       - HIGH_CONFIDENCE: >75% response rate
+       - MODERATE_CONFIDENCE: 50-75% response rate
+       - LOW_CONFIDENCE: <50% response rate
+
+    4. **Recommendations**
+       - Which department scores should leadership trust?
+       - Where should we investigate further before acting?
+       - Suggestions to improve response rates next cycle
+
+  output_format: |
+    Provide a table with columns:
+    Department | Raw Score | Adjusted Score | Confidence | Action Required`,
+              },
+            ],
+          },
+          {
+            stepNumber: 3,
+            title: 'Automation & Delivery',
+            description:
+              'Set up Zapier workflows to automatically detect metric drift, trigger AI analysis, and deliver reconciliation alerts to Slack and stakeholders.',
+            toolsUsed: ['Zapier', 'Slack', 'Google Sheets', 'Email'],
+            codeSnippets: [
+              {
+                language: 'json',
+                title: 'Automated Drift Detection & Alert Workflow',
+                description:
+                  'Zapier workflow that detects when HRIS-Payroll headcount gap exceeds threshold and sends prioritized alerts to HR operations.',
+                code: `{
+  "zapier_workflow": {
+    "name": "HR Metric Drift Alert System",
+    "trigger": {
+      "app": "Google Sheets",
+      "event": "New or Updated Spreadsheet Row",
+      "config": {
+        "spreadsheet_id": "{{HR_METRICS_SHEET_ID}}",
+        "worksheet": "Reconciliation_Summary",
+        "trigger_column": "gap_percentage"
+      }
+    },
+    "actions": [
+      {
+        "step": 1,
+        "app": "Filter by Zapier",
+        "event": "Only Continue If",
+        "config": {
+          "conditions": [
+            {
+              "field": "{{gap_percentage}}",
+              "operator": "greater_than",
+              "value": 2.0
+            }
+          ]
+        }
+      },
+      {
+        "step": 2,
+        "app": "Paths by Zapier",
+        "event": "Route by Severity",
+        "config": {
+          "paths": [
+            {
+              "name": "Critical Alert",
+              "condition": "{{gap_percentage}} > 5",
+              "continue_to": "step_3a"
+            },
+            {
+              "name": "Warning Alert",
+              "condition": "{{gap_percentage}} > 2 AND {{gap_percentage}} <= 5",
+              "continue_to": "step_3b"
+            }
+          ]
+        }
+      },
+      {
+        "step": "3a",
+        "app": "Slack",
+        "event": "Send Channel Message",
+        "config": {
+          "channel": "#hr-ops-critical",
+          "message_template": ":rotating_light: *CRITICAL: HR Metric Drift Detected*\\n\\n*Gap:* {{gap_percentage}}% between HRIS and Payroll\\n*HRIS Count:* {{hris_count}}\\n*Payroll Count:* {{payroll_count}}\\n*Detected:* {{timestamp}}\\n\\n*Immediate Action Required:* Review reconciliation report\\n<{{reconciliation_sheet_url}}|View Full Report>",
+          "mention": "@hr-ops-oncall"
+        }
+      },
+      {
+        "step": "3b",
+        "app": "Slack",
+        "event": "Send Channel Message",
+        "config": {
+          "channel": "#hr-data-alerts",
+          "message_template": ":warning: *Warning: HR Metric Variance*\\n\\nHeadcount gap of {{gap_percentage}}% detected.\\n\\n*Details:*\\n- HRIS: {{hris_count}} employees\\n- Payroll: {{payroll_count}} employees\\n- Delta: {{absolute_difference}}\\n\\n<{{reconciliation_sheet_url}}|Review Discrepancies>"
+        }
+      },
+      {
+        "step": 4,
+        "app": "Google Sheets",
+        "event": "Update Spreadsheet Row",
+        "config": {
+          "spreadsheet_id": "{{HR_METRICS_SHEET_ID}}",
+          "worksheet": "Alert_Log",
+          "row_data": {
+            "alert_timestamp": "{{zap_timestamp}}",
+            "gap_percentage": "{{gap_percentage}}",
+            "severity": "{{path_taken}}",
+            "notification_sent": true
+          }
+        }
+      }
+    ]
+  }
+}`,
+              },
+              {
+                language: 'json',
+                title: 'Weekly Executive Summary Delivery',
+                description:
+                  'Zapier workflow that compiles weekly HR metrics into a summary email with AI-generated insights for leadership.',
+                code: `{
+  "zapier_workflow": {
+    "name": "Weekly HR Metrics Executive Summary",
+    "trigger": {
+      "app": "Schedule by Zapier",
+      "event": "Every Week",
+      "config": {
+        "day_of_week": "Friday",
+        "time": "16:00",
+        "timezone": "America/New_York"
+      }
+    },
+    "actions": [
+      {
+        "step": 1,
+        "app": "Google Sheets",
+        "event": "Get Many Spreadsheet Rows",
+        "config": {
+          "spreadsheet_id": "{{HR_METRICS_SHEET_ID}}",
+          "worksheet": "Weekly_Summary",
+          "filter": "week_ending = {{current_week_end}}"
+        }
+      },
+      {
+        "step": 2,
+        "app": "ChatGPT",
+        "event": "Conversation",
+        "config": {
+          "model": "gpt-4",
+          "system_message": "You are an HR analytics assistant. Summarize the weekly HR metrics data into a concise executive brief.",
+          "user_message": "Generate a 3-paragraph executive summary of this week's HR metrics:\\n\\nHeadcount: {{current_headcount}} ({{headcount_change}} from last week)\\nTurnover Rate: {{turnover_rate}}%\\nOpen Positions: {{open_positions}}\\nReconciliation Status: {{reconciliation_status}}\\nEngagement Score: {{engagement_score}}\\n\\nHighlight any metrics that need attention.",
+          "max_tokens": 500
+        }
+      },
+      {
+        "step": 3,
+        "app": "Gmail",
+        "event": "Send Email",
+        "config": {
+          "to": "{{executive_distribution_list}}",
+          "subject": "Weekly HR Metrics Summary - Week Ending {{week_end_date}}",
+          "body_template": "<h2>HR Metrics Weekly Brief</h2>\\n\\n{{chatgpt_summary}}\\n\\n<hr>\\n\\n<h3>Key Metrics</h3>\\n<table>\\n<tr><td><b>Active Headcount:</b></td><td>{{current_headcount}}</td></tr>\\n<tr><td><b>Monthly Turnover:</b></td><td>{{turnover_rate}}%</td></tr>\\n<tr><td><b>HRIS-Payroll Gap:</b></td><td>{{gap_percentage}}%</td></tr>\\n<tr><td><b>Engagement Score:</b></td><td>{{engagement_score}}/5.0</td></tr>\\n</table>\\n\\n<p><a href='{{full_dashboard_url}}'>View Full Dashboard</a></p>",
+          "is_html": true
+        }
+      }
+    ]
+  }
+}`,
+              },
+            ],
+          },
+        ],
+      },
+      aiAdvanced: {
+        overview:
+          'Deploy a multi-agent system where specialized AI agents handle source reconciliation, metric drift detection, bias adjustment calculations, and automated alerting, coordinated by a supervisor agent that ensures consistent HR metric governance.',
+        estimatedMonthlyCost: '$500 - $1,200/month',
+        architecture:
+          'Supervisor agent coordinates four specialist agents: Source Reconciliation Agent (HRIS/payroll matching), Drift Detection Agent (anomaly identification), Bias Adjustment Agent (engagement score correction), and Reporting Agent (stakeholder communications). LangGraph orchestrates the daily workflow with Redis-backed state persistence.',
+        agents: [
+          {
+            name: 'Source Reconciliation Agent',
+            role: 'Data Matching Specialist',
+            goal: 'Match employee records across HRIS, payroll, and benefits systems using fuzzy matching and identity resolution algorithms to maintain the master employee crosswalk.',
+            tools: ['pandas', 'fuzzywuzzy', 'recordlinkage', 'sqlalchemy', 'BambooHR API', 'ADP API'],
+          },
+          {
+            name: 'Drift Detection Agent',
+            role: 'Anomaly Detection Specialist',
+            goal: 'Monitor HR metrics for statistically significant deviations from historical baselines and trigger alerts when turnover, headcount, or engagement metrics breach thresholds.',
+            tools: ['scipy.stats', 'pandas', 'numpy', 'sklearn.ensemble', 'prometheus_client'],
+          },
+          {
+            name: 'Bias Adjustment Agent',
+            role: 'Statistical Analysis Specialist',
+            goal: 'Apply non-response bias corrections to engagement survey scores and calculate confidence intervals for all HR metrics to ensure statistically sound reporting.',
+            tools: ['scipy.stats', 'statsmodels', 'pandas', 'numpy'],
+          },
+          {
+            name: 'Reporting Agent',
+            role: 'Stakeholder Communications Specialist',
+            goal: 'Generate executive summaries, reconciliation reports, and audit-ready documentation with appropriate detail levels for different audiences.',
+            tools: ['jinja2', 'markdown', 'slack_sdk', 'sendgrid', 'google-api-python-client'],
+          },
+          {
+            name: 'Supervisor Agent',
+            role: 'Workflow Orchestrator',
+            goal: 'Coordinate the specialist agents, manage workflow state, handle errors gracefully, and ensure daily HR metric governance runs complete successfully.',
+            tools: ['langgraph', 'redis', 'langchain', 'langsmith'],
+          },
+        ],
+        orchestration: {
+          framework: 'LangGraph',
+          pattern: 'Supervisor',
+          stateManagement: 'Redis-backed state with daily checkpointing and 30-day audit trail retention',
+        },
+        steps: [
+          {
+            stepNumber: 1,
+            title: 'Agent Architecture & Role Design',
+            description:
+              'Define the multi-agent architecture with CrewAI, specifying each agent role, goals, and tool access for the HR metric validation pipeline.',
+            toolsUsed: ['CrewAI', 'LangChain'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'HR Metric Validation Agent Definitions',
+                description:
+                  'CrewAI agent definitions for the source reconciliation, drift detection, bias adjustment, and reporting agents with their specialized tools.',
+                code: `"""HR Metric Validation Multi-Agent System - Agent Definitions."""
+from typing import List, Optional
+from crewai import Agent, Task, Crew, Process
+from crewai.tools import BaseTool
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+
+
+class HRMetricConfig(BaseModel):
+    """Configuration for HR metric validation thresholds."""
+    headcount_gap_threshold_pct: float = Field(default=2.0, description="Max allowed HRIS-payroll gap")
+    turnover_rate_max_pct: float = Field(default=8.0, description="Monthly turnover alert threshold")
+    engagement_drop_threshold: float = Field(default=0.3, description="Point drop triggering alert")
+    response_rate_min_pct: float = Field(default=50.0, description="Min response rate for confidence")
+
+
+class ReconciliationResult(BaseModel):
+    """Output schema for reconciliation agent."""
+    hris_count: int
+    payroll_count: int
+    gap_percentage: float
+    discrepancies: List[dict]
+    severity: str
+    recommendations: List[str]
+
+
+# Initialize the LLM with appropriate settings for HR domain
+llm = ChatOpenAI(
+    model="gpt-4-turbo-preview",
+    temperature=0.1,  # Low temperature for consistent analysis
+    max_tokens=4096,
+)
+
+
+# --- Source Reconciliation Agent ---
+source_reconciliation_agent = Agent(
+    role="HR Data Reconciliation Specialist",
+    goal="""Match employee records across HRIS (BambooHR), payroll (ADP), and
+    benefits systems. Identify discrepancies, classify their severity, and
+    provide actionable resolution steps.""",
+    backstory="""You are an expert in HR data integration with 10+ years of
+    experience reconciling employee records across enterprise systems. You
+    understand common causes of HRIS-payroll mismatches including timing
+    differences, contractor classification, and data entry errors. You prioritize
+    compliance risks and can identify ghost employees or missing payroll setups.""",
+    verbose=True,
+    allow_delegation=False,
+    llm=llm,
+    tools=[],  # Tools added separately
+    max_iter=5,
+    memory=True,
+)
+
+
+# --- Drift Detection Agent ---
+drift_detection_agent = Agent(
+    role="HR Metric Anomaly Detection Specialist",
+    goal="""Monitor HR metrics for statistically significant deviations from
+    historical baselines. Detect unusual turnover spikes, headcount swings,
+    and engagement score changes that require investigation.""",
+    backstory="""You are a data scientist specializing in anomaly detection
+    for people analytics. You apply statistical tests to distinguish normal
+    variation from true metric drift. You understand seasonality in HR data
+    (Q4 turnover spikes, post-survey engagement dips) and adjust thresholds
+    accordingly. You never cry wolf on normal fluctuations.""",
+    verbose=True,
+    allow_delegation=False,
+    llm=llm,
+    tools=[],
+    max_iter=5,
+    memory=True,
+)
+
+
+# --- Bias Adjustment Agent ---
+bias_adjustment_agent = Agent(
+    role="HR Survey Methodology Specialist",
+    goal="""Apply rigorous statistical corrections to engagement survey scores
+    to account for non-response bias. Calculate confidence intervals and flag
+    results that should not be trusted due to low response rates.""",
+    backstory="""You are a PhD statistician specializing in survey methodology
+    and response bias correction. You understand that disengaged employees are
+    less likely to respond to surveys, creating systematic upward bias in raw
+    scores. You apply conservative adjustments and always communicate uncertainty
+    to prevent overconfident decision-making on flawed data.""",
+    verbose=True,
+    allow_delegation=False,
+    llm=llm,
+    tools=[],
+    max_iter=3,
+    memory=True,
+)
+
+
+# --- Reporting Agent ---
+reporting_agent = Agent(
+    role="HR Analytics Communications Specialist",
+    goal="""Generate clear, actionable reports tailored to different audiences:
+    executive summaries for leadership, detailed reconciliation logs for HR ops,
+    and audit-ready documentation for compliance.""",
+    backstory="""You are a seasoned HR analytics communicator who knows how to
+    translate complex data findings into business impact. For executives, you
+    lead with the 'so what' and recommended actions. For operations teams, you
+    provide step-by-step resolution guides. For auditors, you document methodology
+    and maintain chain of custody for all metric calculations.""",
+    verbose=True,
+    allow_delegation=False,
+    llm=llm,
+    tools=[],
+    max_iter=3,
+    memory=True,
+)
+
+
+# --- Supervisor Agent ---
+supervisor_agent = Agent(
+    role="HR Metric Governance Coordinator",
+    goal="""Orchestrate the daily HR metric validation workflow, ensuring all
+    specialist agents complete their tasks successfully. Handle errors gracefully,
+    escalate critical issues, and maintain audit trails.""",
+    backstory="""You are the chief of staff for HR analytics operations. You
+    coordinate the specialist agents, manage dependencies between their work,
+    and ensure the daily metric governance pipeline runs to completion. When
+    issues arise, you know when to retry, when to skip, and when to escalate
+    to human operators.""",
+    verbose=True,
+    allow_delegation=True,
+    llm=llm,
+    tools=[],
+    max_iter=10,
+    memory=True,
+)
+
+
+def create_hr_metric_crew(config: HRMetricConfig) -> Crew:
+    """Create the HR metric validation crew with configured agents."""
+
+    # Define tasks for each agent
+    reconciliation_task = Task(
+        description="""Pull headcount data from HRIS and payroll systems.
+        Match records using employee ID and fuzzy name matching.
+        Identify and classify all discrepancies.
+        Threshold for alerting: >{threshold}% gap.""".format(
+            threshold=config.headcount_gap_threshold_pct
+        ),
+        expected_output="ReconciliationResult with discrepancy list and severity",
+        agent=source_reconciliation_agent,
+    )
+
+    drift_task = Task(
+        description="""Analyze this month's HR metrics against 6-month baseline.
+        Flag any metric breaching thresholds:
+        - Turnover > {turnover}%
+        - Headcount change > 5%
+        - Engagement drop > {engagement} points""".format(
+            turnover=config.turnover_rate_max_pct,
+            engagement=config.engagement_drop_threshold,
+        ),
+        expected_output="List of metric anomalies with statistical confidence",
+        agent=drift_detection_agent,
+    )
+
+    bias_task = Task(
+        description="""Review engagement survey results. Calculate bias-adjusted
+        scores for departments with <{min_response}% response rate.
+        Assign confidence flags to all scores.""".format(
+            min_response=config.response_rate_min_pct
+        ),
+        expected_output="Adjusted engagement scores with confidence intervals",
+        agent=bias_adjustment_agent,
+    )
+
+    reporting_task = Task(
+        description="""Compile findings from reconciliation, drift detection,
+        and bias adjustment into three reports:
+        1. Executive summary (3 paragraphs max)
+        2. HR Ops action items (prioritized list)
+        3. Audit log entry (methodology + results)""",
+        expected_output="Three formatted reports for different audiences",
+        agent=reporting_agent,
+        context=[reconciliation_task, drift_task, bias_task],
+    )
+
+    return Crew(
+        agents=[
+            source_reconciliation_agent,
+            drift_detection_agent,
+            bias_adjustment_agent,
+            reporting_agent,
+        ],
+        tasks=[reconciliation_task, drift_task, bias_task, reporting_task],
+        process=Process.sequential,
+        manager_agent=supervisor_agent,
+        verbose=True,
+    )`,
+              },
+            ],
+          },
+          {
+            stepNumber: 2,
+            title: 'Data Ingestion Agent(s)',
+            description:
+              'Implement the Source Reconciliation Agent with tools for pulling data from BambooHR, ADP, and other HR systems, plus fuzzy matching capabilities for identity resolution.',
+            toolsUsed: ['CrewAI', 'LangChain', 'pandas', 'fuzzywuzzy', 'sqlalchemy'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'Source Reconciliation Agent Tools',
+                description:
+                  'Custom CrewAI tools for the Source Reconciliation Agent to pull HRIS/payroll data and perform fuzzy matching for identity resolution.',
+                code: `"""Source Reconciliation Agent Tools for HR Data Integration."""
+import hashlib
+import os
+from typing import Any, Dict, List, Optional, Type
+
+import pandas as pd
+import requests
+from crewai.tools import BaseTool
+from fuzzywuzzy import fuzz, process
+from pydantic import BaseModel, Field
+from sqlalchemy import create_engine, text
+
+
+class BambooHRFetchInput(BaseModel):
+    """Input schema for BambooHR employee fetch."""
+    include_terminated: bool = Field(
+        default=False,
+        description="Whether to include terminated employees"
+    )
+    department_filter: Optional[str] = Field(
+        default=None,
+        description="Filter by department name"
+    )
+
+
+class BambooHRFetchTool(BaseTool):
+    """Tool to fetch employee data from BambooHR API."""
+
+    name: str = "bamboohr_fetch"
+    description: str = """Fetches employee directory from BambooHR HRIS.
+    Returns employee ID, name, department, status, and hire date."""
+    args_schema: Type[BaseModel] = BambooHRFetchInput
+
+    def _run(
+        self,
+        include_terminated: bool = False,
+        department_filter: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Execute BambooHR API call to fetch employees."""
+        api_key = os.environ.get("BAMBOOHR_API_KEY")
+        subdomain = os.environ.get("BAMBOOHR_SUBDOMAIN")
+
+        if not api_key or not subdomain:
+            return {"error": "BambooHR credentials not configured"}
+
+        url = f"https://api.bamboohr.com/api/gateway.php/{subdomain}/v1/employees/directory"
+
+        try:
+            response = requests.get(
+                url,
+                headers={"Accept": "application/json"},
+                auth=(api_key, "x"),
+                timeout=30,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            employees = data.get("employees", [])
+            df = pd.DataFrame(employees)
+
+            # Filter terminated if requested
+            if not include_terminated and "status" in df.columns:
+                df = df[df["status"] == "Active"]
+
+            # Filter by department if specified
+            if department_filter and "department" in df.columns:
+                df = df[df["department"].str.contains(
+                    department_filter, case=False, na=False
+                )]
+
+            return {
+                "success": True,
+                "count": len(df),
+                "employees": df.to_dict(orient="records"),
+                "columns": list(df.columns),
+            }
+
+        except requests.RequestException as e:
+            return {"error": f"BambooHR API error: {str(e)}"}
+
+
+class ADPFetchInput(BaseModel):
+    """Input schema for ADP payroll fetch."""
+    status_filter: List[str] = Field(
+        default=["active", "leave"],
+        description="Worker status codes to include"
+    )
+
+
+class ADPFetchTool(BaseTool):
+    """Tool to fetch worker data from ADP Workforce Now API."""
+
+    name: str = "adp_fetch"
+    description: str = """Fetches worker records from ADP payroll system.
+    Returns worker ID, legal name, pay status, and department code."""
+    args_schema: Type[BaseModel] = ADPFetchInput
+
+    def _run(self, status_filter: List[str] = None) -> Dict[str, Any]:
+        """Execute ADP API call to fetch workers."""
+        client_id = os.environ.get("ADP_CLIENT_ID")
+        client_secret = os.environ.get("ADP_CLIENT_SECRET")
+
+        if not client_id or not client_secret:
+            return {"error": "ADP credentials not configured"}
+
+        status_filter = status_filter or ["active", "leave"]
+
+        try:
+            # Get OAuth token
+            token_response = requests.post(
+                "https://accounts.adp.com/auth/oauth/v2/token",
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                },
+                timeout=30,
+            )
+            token_response.raise_for_status()
+            token = token_response.json()["access_token"]
+
+            # Fetch workers
+            workers_response = requests.get(
+                "https://api.adp.com/hr/v2/workers",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=60,
+            )
+            workers_response.raise_for_status()
+
+            workers = workers_response.json().get("workers", [])
+
+            records = []
+            for w in workers:
+                status = w.get("workerStatus", {}).get("statusCode", {}).get("codeValue", "")
+                if status.lower() in [s.lower() for s in status_filter]:
+                    records.append({
+                        "adp_worker_id": w.get("workerID", {}).get("idValue"),
+                        "legal_name": w.get("person", {}).get("legalName", {}).get("formattedName"),
+                        "pay_status": status,
+                        "department_code": w.get("organizationalUnits", [{}])[0].get("nameCode", {}).get("codeValue"),
+                        "ssn_hash": hashlib.sha256(
+                            w.get("person", {}).get("governmentIDs", [{}])[0]
+                            .get("idValue", "").encode()
+                        ).hexdigest() if w.get("person", {}).get("governmentIDs") else None,
+                    })
+
+            return {
+                "success": True,
+                "count": len(records),
+                "workers": records,
+            }
+
+        except requests.RequestException as e:
+            return {"error": f"ADP API error: {str(e)}"}
+
+
+class FuzzyMatchInput(BaseModel):
+    """Input schema for fuzzy matching tool."""
+    hris_records: List[Dict] = Field(description="Records from HRIS system")
+    payroll_records: List[Dict] = Field(description="Records from payroll system")
+    match_threshold: int = Field(default=85, description="Minimum fuzzy match score (0-100)")
+
+
+class FuzzyMatchTool(BaseTool):
+    """Tool for fuzzy matching employee records across systems."""
+
+    name: str = "fuzzy_match_employees"
+    description: str = """Matches employee records between HRIS and payroll using
+    fuzzy name matching when exact ID matches fail. Returns matched pairs,
+    HRIS-only records, and payroll-only records."""
+    args_schema: Type[BaseModel] = FuzzyMatchInput
+
+    def _run(
+        self,
+        hris_records: List[Dict],
+        payroll_records: List[Dict],
+        match_threshold: int = 85,
+    ) -> Dict[str, Any]:
+        """Perform fuzzy matching between HRIS and payroll records."""
+
+        hris_df = pd.DataFrame(hris_records)
+        payroll_df = pd.DataFrame(payroll_records)
+
+        # Standardize name columns
+        hris_name_col = next(
+            (c for c in hris_df.columns if "name" in c.lower()),
+            hris_df.columns[0]
+        )
+        payroll_name_col = next(
+            (c for c in payroll_df.columns if "name" in c.lower()),
+            payroll_df.columns[0]
+        )
+
+        matched = []
+        hris_only = []
+        payroll_matched_indices = set()
+
+        for idx, hris_row in hris_df.iterrows():
+            hris_name = str(hris_row[hris_name_col]).strip()
+
+            # Find best match in payroll
+            payroll_names = payroll_df[payroll_name_col].tolist()
+            best_match = process.extractOne(
+                hris_name,
+                payroll_names,
+                scorer=fuzz.token_sort_ratio
+            )
+
+            if best_match and best_match[1] >= match_threshold:
+                payroll_idx = payroll_names.index(best_match[0])
+                payroll_matched_indices.add(payroll_idx)
+                matched.append({
+                    "hris_record": hris_row.to_dict(),
+                    "payroll_record": payroll_df.iloc[payroll_idx].to_dict(),
+                    "match_score": best_match[1],
+                    "match_type": "exact" if best_match[1] == 100 else "fuzzy",
+                })
+            else:
+                hris_only.append({
+                    "record": hris_row.to_dict(),
+                    "best_match_score": best_match[1] if best_match else 0,
+                    "discrepancy_type": "IN_HRIS_NOT_PAYROLL",
+                })
+
+        # Find payroll-only records
+        payroll_only = [
+            {
+                "record": payroll_df.iloc[i].to_dict(),
+                "discrepancy_type": "IN_PAYROLL_NOT_HRIS",
+            }
+            for i in range(len(payroll_df))
+            if i not in payroll_matched_indices
+        ]
+
+        return {
+            "success": True,
+            "summary": {
+                "total_hris": len(hris_df),
+                "total_payroll": len(payroll_df),
+                "matched": len(matched),
+                "hris_only": len(hris_only),
+                "payroll_only": len(payroll_only),
+                "match_rate_pct": round(len(matched) / max(len(hris_df), 1) * 100, 2),
+            },
+            "matched_records": matched,
+            "hris_only_records": hris_only,
+            "payroll_only_records": payroll_only,
+        }
+
+
+# Register tools with the Source Reconciliation Agent
+reconciliation_tools = [
+    BambooHRFetchTool(),
+    ADPFetchTool(),
+    FuzzyMatchTool(),
+]`,
+              },
+            ],
+          },
+          {
+            stepNumber: 3,
+            title: 'Analysis & Decision Agent(s)',
+            description:
+              'Implement the Drift Detection and Bias Adjustment agents with statistical analysis tools for anomaly detection and survey score correction.',
+            toolsUsed: ['CrewAI', 'scipy', 'statsmodels', 'pandas', 'numpy'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'Drift Detection Agent Tools',
+                description:
+                  'Statistical analysis tools for the Drift Detection Agent to identify anomalous HR metric values using z-scores and trend analysis.',
+                code: `"""Drift Detection Agent Tools for HR Metric Anomaly Detection."""
+from typing import Any, Dict, List, Type
+
+import numpy as np
+import pandas as pd
+from crewai.tools import BaseTool
+from pydantic import BaseModel, Field
+from scipy import stats
+from sqlalchemy import create_engine, text
+
+
+class MetricDriftInput(BaseModel):
+    """Input schema for metric drift detection."""
+    metric_name: str = Field(description="Name of the metric to analyze")
+    current_value: float = Field(description="Current period's metric value")
+    historical_values: List[float] = Field(description="Historical values for baseline")
+    threshold_z_score: float = Field(default=2.0, description="Z-score threshold for anomaly")
+
+
+class MetricDriftDetectionTool(BaseTool):
+    """Tool for detecting statistically significant metric drift."""
+
+    name: str = "detect_metric_drift"
+    description: str = """Analyzes a metric value against historical baseline
+    using z-score analysis. Flags values that deviate significantly from the norm."""
+    args_schema: Type[BaseModel] = MetricDriftInput
+
+    def _run(
+        self,
+        metric_name: str,
+        current_value: float,
+        historical_values: List[float],
+        threshold_z_score: float = 2.0,
+    ) -> Dict[str, Any]:
+        """Detect if current metric value represents significant drift."""
+
+        if len(historical_values) < 3:
+            return {
+                "error": "Insufficient historical data (need at least 3 periods)",
+                "metric_name": metric_name,
+            }
+
+        historical = np.array(historical_values)
+        mean = np.mean(historical)
+        std = np.std(historical, ddof=1)  # Sample standard deviation
+
+        # Avoid division by zero
+        if std == 0:
+            z_score = 0 if current_value == mean else float('inf')
+        else:
+            z_score = (current_value - mean) / std
+
+        # Calculate percentile of current value
+        percentile = stats.percentileofscore(historical, current_value)
+
+        # Determine severity
+        abs_z = abs(z_score)
+        if abs_z >= 3.0:
+            severity = "critical"
+            is_anomaly = True
+        elif abs_z >= threshold_z_score:
+            severity = "warning"
+            is_anomaly = True
+        else:
+            severity = "normal"
+            is_anomaly = False
+
+        # Direction of drift
+        direction = "increase" if current_value > mean else "decrease"
+
+        return {
+            "metric_name": metric_name,
+            "current_value": current_value,
+            "historical_mean": round(mean, 4),
+            "historical_std": round(std, 4),
+            "z_score": round(z_score, 2),
+            "percentile": round(percentile, 1),
+            "is_anomaly": is_anomaly,
+            "severity": severity,
+            "direction": direction,
+            "threshold_used": threshold_z_score,
+            "interpretation": f"{metric_name} is {abs_z:.1f} standard deviations "
+                            f"{'above' if z_score > 0 else 'below'} the historical mean. "
+                            f"This {'IS' if is_anomaly else 'is NOT'} a statistically "
+                            f"significant deviation.",
+        }
+
+
+class TurnoverTrendInput(BaseModel):
+    """Input schema for turnover trend analysis."""
+    monthly_turnover_rates: List[Dict] = Field(
+        description="List of {month, department, turnover_pct} records"
+    )
+    alert_threshold_pct: float = Field(default=8.0, description="Turnover % triggering alert")
+
+
+class TurnoverTrendAnalysisTool(BaseTool):
+    """Tool for analyzing turnover trends and detecting hotspots."""
+
+    name: str = "analyze_turnover_trends"
+    description: str = """Analyzes monthly turnover rates by department to detect
+    concerning trends and identify departments with abnormal attrition."""
+    args_schema: Type[BaseModel] = TurnoverTrendInput
+
+    def _run(
+        self,
+        monthly_turnover_rates: List[Dict],
+        alert_threshold_pct: float = 8.0,
+    ) -> Dict[str, Any]:
+        """Analyze turnover trends across departments."""
+
+        df = pd.DataFrame(monthly_turnover_rates)
+
+        if df.empty:
+            return {"error": "No turnover data provided"}
+
+        # Aggregate by department
+        dept_summary = df.groupby("department").agg({
+            "turnover_pct": ["mean", "std", "max", "count"]
+        }).round(2)
+        dept_summary.columns = ["avg_turnover", "std_turnover", "max_turnover", "months"]
+        dept_summary = dept_summary.reset_index()
+
+        # Identify hotspots
+        hotspots = dept_summary[
+            dept_summary["avg_turnover"] > alert_threshold_pct
+        ].to_dict(orient="records")
+
+        # Calculate company-wide trend
+        monthly_trend = df.groupby("month")["turnover_pct"].mean().reset_index()
+        monthly_trend = monthly_trend.sort_values("month")
+
+        # Check for increasing trend using linear regression
+        if len(monthly_trend) >= 3:
+            x = np.arange(len(monthly_trend))
+            y = monthly_trend["turnover_pct"].values
+            slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+            trend_direction = "increasing" if slope > 0.1 else "decreasing" if slope < -0.1 else "stable"
+            trend_significant = p_value < 0.05
+        else:
+            slope, trend_direction, trend_significant = 0, "insufficient_data", False
+
+        return {
+            "summary": {
+                "total_departments": len(dept_summary),
+                "hotspot_count": len(hotspots),
+                "company_avg_turnover": round(df["turnover_pct"].mean(), 2),
+                "company_max_turnover": round(df["turnover_pct"].max(), 2),
+            },
+            "trend": {
+                "direction": trend_direction,
+                "slope_per_month": round(slope, 3),
+                "statistically_significant": trend_significant,
+            },
+            "hotspot_departments": hotspots,
+            "department_summary": dept_summary.to_dict(orient="records"),
+            "alert_threshold_used": alert_threshold_pct,
+        }
+
+
+class BiasAdjustmentInput(BaseModel):
+    """Input schema for engagement score bias adjustment."""
+    survey_results: List[Dict] = Field(
+        description="List of {department, headcount, respondents, raw_score} records"
+    )
+    assumed_nonrespondent_percentile: float = Field(
+        default=25.0,
+        description="Percentile to assume for non-respondents"
+    )
+
+
+class EngagementBiasAdjustmentTool(BaseTool):
+    """Tool for calculating bias-adjusted engagement scores."""
+
+    name: str = "adjust_engagement_bias"
+    description: str = """Adjusts raw engagement survey scores for non-response
+    bias by assuming non-respondents score at a specified percentile."""
+    args_schema: Type[BaseModel] = BiasAdjustmentInput
+
+    def _run(
+        self,
+        survey_results: List[Dict],
+        assumed_nonrespondent_percentile: float = 25.0,
+    ) -> Dict[str, Any]:
+        """Calculate bias-adjusted engagement scores."""
+
+        df = pd.DataFrame(survey_results)
+
+        if df.empty:
+            return {"error": "No survey data provided"}
+
+        # Calculate response rates
+        df["response_rate"] = (df["respondents"] / df["headcount"] * 100).round(1)
+
+        # Get overall 25th percentile of raw scores for non-respondent assumption
+        nonrespondent_score = np.percentile(
+            df["raw_score"],
+            assumed_nonrespondent_percentile
+        )
+
+        # Calculate adjusted scores
+        # adjusted = raw * response_rate + nonrespondent_score * (1 - response_rate)
+        df["adjusted_score"] = (
+            df["raw_score"] * (df["response_rate"] / 100) +
+            nonrespondent_score * (1 - df["response_rate"] / 100)
+        ).round(2)
+
+        # Assign confidence flags
+        def assign_confidence(rate: float) -> str:
+            if rate >= 75:
+                return "HIGH_CONFIDENCE"
+            elif rate >= 50:
+                return "MODERATE_CONFIDENCE"
+            else:
+                return "LOW_CONFIDENCE"
+
+        df["confidence_flag"] = df["response_rate"].apply(assign_confidence)
+
+        # Calculate impact of adjustment
+        df["adjustment_delta"] = (df["raw_score"] - df["adjusted_score"]).round(2)
+
+        # Summary statistics
+        low_confidence_depts = df[df["confidence_flag"] == "LOW_CONFIDENCE"]
+
+        return {
+            "methodology": {
+                "assumed_nonrespondent_score": round(nonrespondent_score, 2),
+                "assumed_percentile": assumed_nonrespondent_percentile,
+                "formula": "adjusted = raw * response_rate + nonrespondent_score * (1 - response_rate)",
+            },
+            "summary": {
+                "total_departments": len(df),
+                "avg_response_rate": round(df["response_rate"].mean(), 1),
+                "avg_raw_score": round(df["raw_score"].mean(), 2),
+                "avg_adjusted_score": round(df["adjusted_score"].mean(), 2),
+                "avg_adjustment": round(df["adjustment_delta"].mean(), 2),
+                "low_confidence_count": len(low_confidence_depts),
+            },
+            "adjusted_scores": df[[
+                "department", "headcount", "respondents", "response_rate",
+                "raw_score", "adjusted_score", "adjustment_delta", "confidence_flag"
+            ]].to_dict(orient="records"),
+            "warnings": [
+                f"Department '{row['department']}' has only {row['response_rate']}% response rate - results may not be representative"
+                for _, row in low_confidence_depts.iterrows()
+            ],
+        }
+
+
+# Tool registrations
+drift_detection_tools = [
+    MetricDriftDetectionTool(),
+    TurnoverTrendAnalysisTool(),
+]
+
+bias_adjustment_tools = [
+    EngagementBiasAdjustmentTool(),
+]`,
+              },
+            ],
+          },
+          {
+            stepNumber: 4,
+            title: 'Workflow Orchestration',
+            description:
+              'Implement the LangGraph state machine that coordinates the multi-agent HR metric validation workflow with Redis-backed state persistence.',
+            toolsUsed: ['LangGraph', 'Redis', 'LangChain'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'LangGraph HR Metric Validation Workflow',
+                description:
+                  'LangGraph state machine orchestrating the daily HR metric validation pipeline with supervisor coordination and checkpoint persistence.',
+                code: `"""LangGraph Orchestration for HR Metric Validation Pipeline."""
+import json
+import logging
+import operator
+from datetime import datetime
+from typing import Annotated, Any, Dict, List, Literal, Optional, TypedDict
+
+import redis
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import END, StateGraph
+from langgraph.prebuilt import ToolNode
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class HRMetricState(TypedDict):
+    """State schema for HR metric validation workflow."""
+
+    # Workflow metadata
+    run_id: str
+    run_date: str
+    status: Literal["pending", "running", "completed", "failed"]
+
+    # Agent outputs
+    reconciliation_result: Optional[Dict[str, Any]]
+    drift_detection_result: Optional[Dict[str, Any]]
+    bias_adjustment_result: Optional[Dict[str, Any]]
+    reports_generated: Optional[Dict[str, str]]
+
+    # Error tracking
+    errors: Annotated[List[str], operator.add]
+
+    # Message history for agents
+    messages: Annotated[List[BaseMessage], operator.add]
+
+    # Control flow
+    current_agent: str
+    next_agent: Optional[str]
+    requires_escalation: bool
+    escalation_reason: Optional[str]
+
+
+class HRMetricWorkflow:
+    """LangGraph workflow for HR metric validation."""
+
+    def __init__(self, redis_url: str = "redis://localhost:6379"):
+        """Initialize the workflow with Redis checkpointing."""
+        self.llm = ChatOpenAI(model="gpt-4-turbo-preview", temperature=0.1)
+        self.redis_client = redis.from_url(redis_url)
+        self.checkpointer = MemorySaver()  # Use Redis in production
+        self.graph = self._build_graph()
+
+    def _build_graph(self) -> StateGraph:
+        """Construct the LangGraph state machine."""
+
+        workflow = StateGraph(HRMetricState)
+
+        # Add nodes for each agent
+        workflow.add_node("initialize", self._initialize_run)
+        workflow.add_node("reconciliation_agent", self._run_reconciliation)
+        workflow.add_node("drift_detection_agent", self._run_drift_detection)
+        workflow.add_node("bias_adjustment_agent", self._run_bias_adjustment)
+        workflow.add_node("reporting_agent", self._generate_reports)
+        workflow.add_node("supervisor_check", self._supervisor_check)
+        workflow.add_node("escalate", self._escalate_to_human)
+        workflow.add_node("finalize", self._finalize_run)
+
+        # Define edges
+        workflow.set_entry_point("initialize")
+
+        workflow.add_edge("initialize", "reconciliation_agent")
+        workflow.add_edge("reconciliation_agent", "supervisor_check")
+
+        # Conditional routing from supervisor
+        workflow.add_conditional_edges(
+            "supervisor_check",
+            self._route_after_supervisor,
+            {
+                "drift_detection": "drift_detection_agent",
+                "bias_adjustment": "bias_adjustment_agent",
+                "reporting": "reporting_agent",
+                "escalate": "escalate",
+                "finalize": "finalize",
+            }
+        )
+
+        workflow.add_edge("drift_detection_agent", "supervisor_check")
+        workflow.add_edge("bias_adjustment_agent", "supervisor_check")
+        workflow.add_edge("reporting_agent", "finalize")
+        workflow.add_edge("escalate", "finalize")
+        workflow.add_edge("finalize", END)
+
+        return workflow.compile(checkpointer=self.checkpointer)
+
+    def _initialize_run(self, state: HRMetricState) -> Dict[str, Any]:
+        """Initialize a new validation run."""
+        logger.info("Initializing HR metric validation run")
+
+        run_id = f"hr-validation-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
+        return {
+            "run_id": run_id,
+            "run_date": datetime.now().isoformat(),
+            "status": "running",
+            "current_agent": "reconciliation_agent",
+            "errors": [],
+            "requires_escalation": False,
+            "messages": [
+                SystemMessage(content="Starting HR metric validation pipeline"),
+            ],
+        }
+
+    def _run_reconciliation(self, state: HRMetricState) -> Dict[str, Any]:
+        """Execute source reconciliation agent."""
+        logger.info("Running Source Reconciliation Agent")
+
+        try:
+            # In production, this calls the actual CrewAI agent
+            # Simulated result for demonstration
+            result = {
+                "hris_count": 1247,
+                "payroll_count": 1239,
+                "gap_percentage": 0.64,
+                "discrepancies": [
+                    {"type": "IN_HRIS_NOT_PAYROLL", "count": 12},
+                    {"type": "IN_PAYROLL_NOT_HRIS", "count": 4},
+                ],
+                "severity": "low" if 0.64 < 2.0 else "high",
+                "recommendations": [
+                    "Review 12 HRIS records missing from payroll",
+                    "Investigate 4 payroll ghost employees",
+                ],
+            }
+
+            return {
+                "reconciliation_result": result,
+                "current_agent": "supervisor_check",
+                "next_agent": "drift_detection",
+                "messages": [
+                    HumanMessage(content=f"Reconciliation complete: {result['gap_percentage']}% gap"),
+                ],
+            }
+
+        except Exception as e:
+            logger.error(f"Reconciliation agent failed: {e}")
+            return {
+                "errors": [f"Reconciliation failed: {str(e)}"],
+                "requires_escalation": True,
+                "escalation_reason": str(e),
+            }
+
+    def _run_drift_detection(self, state: HRMetricState) -> Dict[str, Any]:
+        """Execute drift detection agent."""
+        logger.info("Running Drift Detection Agent")
+
+        try:
+            result = {
+                "metrics_analyzed": ["turnover_rate", "headcount", "engagement"],
+                "anomalies_detected": [
+                    {
+                        "metric": "turnover_rate",
+                        "department": "Engineering",
+                        "z_score": 2.3,
+                        "severity": "warning",
+                    }
+                ],
+                "overall_status": "warning",
+            }
+
+            return {
+                "drift_detection_result": result,
+                "current_agent": "supervisor_check",
+                "next_agent": "bias_adjustment",
+                "messages": [
+                    HumanMessage(content=f"Drift detection: {len(result['anomalies_detected'])} anomalies found"),
+                ],
+            }
+
+        except Exception as e:
+            logger.error(f"Drift detection agent failed: {e}")
+            return {
+                "errors": [f"Drift detection failed: {str(e)}"],
+                "next_agent": "bias_adjustment",  # Continue despite error
+            }
+
+    def _run_bias_adjustment(self, state: HRMetricState) -> Dict[str, Any]:
+        """Execute bias adjustment agent."""
+        logger.info("Running Bias Adjustment Agent")
+
+        try:
+            result = {
+                "departments_adjusted": 12,
+                "avg_adjustment": -0.18,
+                "low_confidence_departments": ["Sales", "Marketing"],
+                "adjusted_company_score": 3.72,
+            }
+
+            return {
+                "bias_adjustment_result": result,
+                "current_agent": "supervisor_check",
+                "next_agent": "reporting",
+                "messages": [
+                    HumanMessage(content=f"Bias adjustment: company score {result['adjusted_company_score']}"),
+                ],
+            }
+
+        except Exception as e:
+            logger.error(f"Bias adjustment agent failed: {e}")
+            return {
+                "errors": [f"Bias adjustment failed: {str(e)}"],
+                "next_agent": "reporting",
+            }
+
+    def _generate_reports(self, state: HRMetricState) -> Dict[str, Any]:
+        """Execute reporting agent to generate outputs."""
+        logger.info("Running Reporting Agent")
+
+        reports = {
+            "executive_summary": "HR metrics within acceptable ranges. Minor reconciliation discrepancies identified.",
+            "hr_ops_actions": "12 HRIS records require payroll setup verification.",
+            "audit_log": json.dumps({
+                "run_id": state["run_id"],
+                "timestamp": datetime.now().isoformat(),
+                "reconciliation": state.get("reconciliation_result"),
+                "drift": state.get("drift_detection_result"),
+                "bias": state.get("bias_adjustment_result"),
+            }),
+        }
+
+        return {
+            "reports_generated": reports,
+            "current_agent": "finalize",
+        }
+
+    def _supervisor_check(self, state: HRMetricState) -> Dict[str, Any]:
+        """Supervisor agent evaluates progress and routes next steps."""
+        logger.info(f"Supervisor checking after: {state.get('current_agent')}")
+
+        # Check for critical issues requiring escalation
+        recon = state.get("reconciliation_result", {})
+        if recon.get("gap_percentage", 0) > 5.0:
+            return {
+                "requires_escalation": True,
+                "escalation_reason": f"Critical headcount gap: {recon['gap_percentage']}%",
+            }
+
+        # Route to next agent
+        return {"current_agent": "supervisor_check"}
+
+    def _route_after_supervisor(self, state: HRMetricState) -> str:
+        """Determine next node after supervisor check."""
+
+        if state.get("requires_escalation"):
+            return "escalate"
+
+        next_agent = state.get("next_agent")
+
+        if next_agent == "drift_detection":
+            return "drift_detection"
+        elif next_agent == "bias_adjustment":
+            return "bias_adjustment"
+        elif next_agent == "reporting":
+            return "reporting"
+        else:
+            return "finalize"
+
+    def _escalate_to_human(self, state: HRMetricState) -> Dict[str, Any]:
+        """Handle escalation to human operators."""
+        logger.warning(f"Escalating to human: {state.get('escalation_reason')}")
+
+        # In production, send Slack/email alert
+        return {
+            "status": "escalated",
+            "messages": [
+                HumanMessage(content=f"ESCALATED: {state.get('escalation_reason')}"),
+            ],
+        }
+
+    def _finalize_run(self, state: HRMetricState) -> Dict[str, Any]:
+        """Finalize the validation run and persist results."""
+        logger.info(f"Finalizing run: {state.get('run_id')}")
+
+        # Persist to Redis for audit trail
+        self.redis_client.setex(
+            f"hr-validation:{state['run_id']}",
+            86400 * 30,  # 30 day retention
+            json.dumps({
+                "run_id": state["run_id"],
+                "run_date": state["run_date"],
+                "status": "completed" if not state.get("errors") else "completed_with_errors",
+                "reconciliation": state.get("reconciliation_result"),
+                "drift": state.get("drift_detection_result"),
+                "bias": state.get("bias_adjustment_result"),
+                "reports": state.get("reports_generated"),
+                "errors": state.get("errors", []),
+            })
+        )
+
+        return {"status": "completed"}
+
+    def run(self, config: Optional[Dict] = None) -> Dict[str, Any]:
+        """Execute the full validation workflow."""
+        config = config or {}
+        thread_id = config.get("thread_id", f"thread-{datetime.now().strftime('%Y%m%d')}")
+
+        initial_state: HRMetricState = {
+            "run_id": "",
+            "run_date": "",
+            "status": "pending",
+            "reconciliation_result": None,
+            "drift_detection_result": None,
+            "bias_adjustment_result": None,
+            "reports_generated": None,
+            "errors": [],
+            "messages": [],
+            "current_agent": "",
+            "next_agent": None,
+            "requires_escalation": False,
+            "escalation_reason": None,
+        }
+
+        result = self.graph.invoke(
+            initial_state,
+            {"configurable": {"thread_id": thread_id}},
+        )
+
+        return result
+
+
+# Usage
+if __name__ == "__main__":
+    workflow = HRMetricWorkflow()
+    result = workflow.run()
+    print(f"Workflow completed: {result['status']}")`,
+              },
+            ],
+          },
+          {
+            stepNumber: 5,
+            title: 'Deployment & Observability',
+            description:
+              'Production deployment configuration with Docker, LangSmith tracing for agent observability, and Prometheus metrics for operational monitoring.',
+            toolsUsed: ['Docker', 'LangSmith', 'Prometheus', 'Grafana'],
+            codeSnippets: [
+              {
+                language: 'yaml',
+                title: 'Docker Compose Production Deployment',
+                description:
+                  'Docker Compose configuration for deploying the HR metric validation multi-agent system with Redis state management and observability stack.',
+                code: `version: '3.8'
+
+services:
+  hr-metric-agents:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hr-metric-agents
+    environment:
+      - OPENAI_API_KEY=\${OPENAI_API_KEY}
+      - LANGCHAIN_API_KEY=\${LANGCHAIN_API_KEY}
+      - LANGCHAIN_TRACING_V2=true
+      - LANGCHAIN_PROJECT=hr-metric-validation
+      - BAMBOOHR_API_KEY=\${BAMBOOHR_API_KEY}
+      - BAMBOOHR_SUBDOMAIN=\${BAMBOOHR_SUBDOMAIN}
+      - ADP_CLIENT_ID=\${ADP_CLIENT_ID}
+      - ADP_CLIENT_SECRET=\${ADP_CLIENT_SECRET}
+      - DATABASE_URL=postgresql://\${DB_USER}:\${DB_PASSWORD}@postgres:5432/hr_analytics
+      - REDIS_URL=redis://redis:6379
+      - SLACK_WEBHOOK_URL=\${SLACK_WEBHOOK_URL}
+      - LOG_LEVEL=INFO
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - hr-metrics-net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+
+  redis:
+    image: redis:7-alpine
+    container_name: hr-metrics-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - hr-metrics-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: hr-metrics-postgres
+    environment:
+      - POSTGRES_USER=\${DB_USER}
+      - POSTGRES_PASSWORD=\${DB_PASSWORD}
+      - POSTGRES_DB=hr_analytics
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - hr-metrics-net
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: hr-metrics-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    ports:
+      - "9090:9090"
+    networks:
+      - hr-metrics-net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hr-metrics-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=\${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - hr-metrics-net
+    restart: unless-stopped
+
+  # Scheduler for daily runs
+  scheduler:
+    image: mcuadros/ofelia:latest
+    container_name: hr-metrics-scheduler
+    depends_on:
+      - hr-metric-agents
+    command: daemon --docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      ofelia.job-exec.hr-validation.schedule: "0 6 * * *"
+      ofelia.job-exec.hr-validation.command: "python -m hr_metrics.run_validation"
+      ofelia.job-exec.hr-validation.container: "hr-metric-agents"
+    networks:
+      - hr-metrics-net
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  hr-metrics-net:
+    driver: bridge`,
+              },
+              {
+                language: 'python',
+                title: 'LangSmith Tracing & Prometheus Metrics',
+                description:
+                  'Observability instrumentation for tracking agent execution, latency, and success rates with LangSmith tracing and Prometheus metrics.',
+                code: `"""Observability instrumentation for HR Metric Validation Agents."""
+import functools
+import logging
+import time
+from typing import Any, Callable, Dict, Optional
+
+from langsmith import Client, traceable
+from langsmith.run_helpers import get_current_run_tree
+from prometheus_client import Counter, Gauge, Histogram, start_http_server
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# --- Prometheus Metrics ---
+
+AGENT_RUNS_TOTAL = Counter(
+    "hr_agent_runs_total",
+    "Total number of agent executions",
+    ["agent_name", "status"],
+)
+
+AGENT_DURATION_SECONDS = Histogram(
+    "hr_agent_duration_seconds",
+    "Agent execution duration in seconds",
+    ["agent_name"],
+    buckets=[0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
+)
+
+RECONCILIATION_GAP_PCT = Gauge(
+    "hr_reconciliation_gap_percentage",
+    "Current HRIS-payroll headcount gap percentage",
+)
+
+ENGAGEMENT_SCORE = Gauge(
+    "hr_engagement_score_adjusted",
+    "Company-wide bias-adjusted engagement score",
+)
+
+ANOMALIES_DETECTED = Gauge(
+    "hr_metric_anomalies_detected",
+    "Number of metric anomalies detected in last run",
+)
+
+WORKFLOW_STATUS = Gauge(
+    "hr_workflow_last_status",
+    "Status of last workflow run (1=success, 0=failure)",
+)
+
+
+# --- LangSmith Tracing ---
+
+langsmith_client = Client()
+
+
+def traced_agent(agent_name: str) -> Callable:
+    """Decorator for tracing agent executions with LangSmith and Prometheus."""
+
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        @traceable(name=agent_name, run_type="chain")
+        def wrapper(*args, **kwargs) -> Any:
+            start_time = time.time()
+            status = "success"
+
+            try:
+                result = func(*args, **kwargs)
+
+                # Record agent-specific metrics
+                if agent_name == "reconciliation_agent" and result:
+                    gap = result.get("gap_percentage", 0)
+                    RECONCILIATION_GAP_PCT.set(gap)
+
+                elif agent_name == "bias_adjustment_agent" and result:
+                    score = result.get("adjusted_company_score", 0)
+                    ENGAGEMENT_SCORE.set(score)
+
+                elif agent_name == "drift_detection_agent" and result:
+                    anomalies = len(result.get("anomalies_detected", []))
+                    ANOMALIES_DETECTED.set(anomalies)
+
+                return result
+
+            except Exception as e:
+                status = "error"
+                logger.error(f"{agent_name} failed: {e}")
+
+                # Add error to LangSmith trace
+                run_tree = get_current_run_tree()
+                if run_tree:
+                    run_tree.end(error=str(e))
+
+                raise
+
+            finally:
+                duration = time.time() - start_time
+                AGENT_RUNS_TOTAL.labels(agent_name=agent_name, status=status).inc()
+                AGENT_DURATION_SECONDS.labels(agent_name=agent_name).observe(duration)
+                logger.info(f"{agent_name} completed in {duration:.2f}s with status={status}")
+
+        return wrapper
+    return decorator
+
+
+class WorkflowObserver:
+    """Observer for tracking overall workflow execution."""
+
+    def __init__(self, prometheus_port: int = 8000):
+        """Initialize observer and start Prometheus metrics server."""
+        self.prometheus_port = prometheus_port
+        self._metrics_started = False
+
+    def start_metrics_server(self) -> None:
+        """Start Prometheus metrics HTTP server."""
+        if not self._metrics_started:
+            start_http_server(self.prometheus_port)
+            self._metrics_started = True
+            logger.info(f"Prometheus metrics available at :{self.prometheus_port}/metrics")
+
+    @traceable(name="hr_metric_validation_workflow", run_type="chain")
+    def observe_workflow(
+        self,
+        workflow_func: Callable,
+        *args,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Execute and observe a complete workflow run."""
+
+        start_time = time.time()
+
+        try:
+            result = workflow_func(*args, **kwargs)
+
+            status = result.get("status", "unknown")
+            WORKFLOW_STATUS.set(1 if status == "completed" else 0)
+
+            # Log summary to LangSmith
+            run_tree = get_current_run_tree()
+            if run_tree:
+                run_tree.metadata = {
+                    "run_id": result.get("run_id"),
+                    "duration_seconds": time.time() - start_time,
+                    "reconciliation_gap": result.get("reconciliation_result", {}).get("gap_percentage"),
+                    "anomalies_detected": len(result.get("drift_detection_result", {}).get("anomalies_detected", [])),
+                    "engagement_score": result.get("bias_adjustment_result", {}).get("adjusted_company_score"),
+                }
+
+            return result
+
+        except Exception as e:
+            WORKFLOW_STATUS.set(0)
+            logger.error(f"Workflow failed: {e}")
+            raise
+
+    def record_custom_metric(
+        self,
+        metric_name: str,
+        value: float,
+        labels: Optional[Dict[str, str]] = None,
+    ) -> None:
+        """Record a custom metric value for dashboards."""
+        # Extend with custom Prometheus gauges as needed
+        logger.info(f"Custom metric: {metric_name}={value}, labels={labels}")
+
+
+# Usage example
+if __name__ == "__main__":
+    observer = WorkflowObserver(prometheus_port=8000)
+    observer.start_metrics_server()
+
+    @traced_agent("reconciliation_agent")
+    def run_reconciliation():
+        # Simulated reconciliation
+        time.sleep(1)
+        return {"gap_percentage": 1.5, "discrepancies": []}
+
+    result = run_reconciliation()
+    print(f"Reconciliation result: {result}")`,
+              },
+            ],
+          },
+        ],
+      },
     },
 
     // ── Pain Point 2: Employee Data Fragmentation ────────────────────────
@@ -1757,6 +3632,2525 @@ ORDER BY week DESC, system;`,
           },
         ],
         toolsUsed: ['PostgreSQL', 'Python', 'pandas', 'SQLAlchemy', 'BambooHR API', 'ADP API', 'pytest', 'Docker', 'GitHub Actions', 'cron / Airflow', 'Slack API'],
+      },
+      aiEasyWin: {
+        overview:
+          'Use ChatGPT or Claude to analyze employee data exports from multiple HR systems, identify identity mismatches, and automate cross-system sync alerts with Zapier connecting HRIS, payroll, LMS, and Slack.',
+        estimatedMonthlyCost: '$120 - $200/month',
+        primaryTools: ['ChatGPT Plus ($20/mo)', 'Zapier Pro ($29.99/mo)', 'Google Sheets (free)', 'Airtable ($20/mo)'],
+        alternativeTools: ['Claude Pro ($20/mo)', 'Make ($10.59/mo)', 'Workday AI', 'Culture Amp'],
+        steps: [
+          {
+            stepNumber: 1,
+            title: 'Data Extraction & Preparation',
+            description:
+              'Set up automated exports from BambooHR, ADP, benefits portal, and LMS into a central Google Sheet or Airtable base using Zapier scheduled workflows.',
+            toolsUsed: ['Zapier', 'Google Sheets', 'Airtable', 'BambooHR', 'ADP'],
+            codeSnippets: [
+              {
+                language: 'json',
+                title: 'Multi-System Employee Data Export Workflow',
+                description:
+                  'Zapier multi-step workflow that pulls employee records from HRIS, payroll, and LMS into a unified Airtable base for cross-system analysis.',
+                code: `{
+  "zapier_workflow": {
+    "name": "Daily Multi-System Employee Sync",
+    "trigger": {
+      "app": "Schedule by Zapier",
+      "event": "Every Day",
+      "config": {
+        "time": "05:00",
+        "timezone": "America/New_York"
+      }
+    },
+    "actions": [
+      {
+        "step": 1,
+        "app": "BambooHR",
+        "event": "Get All Employees",
+        "config": {
+          "fields": [
+            "id",
+            "displayName",
+            "workEmail",
+            "department",
+            "jobTitle",
+            "employmentStatus",
+            "hireDate",
+            "terminationDate"
+          ],
+          "output_key": "hris_employees"
+        }
+      },
+      {
+        "step": 2,
+        "app": "ADP Workforce Now",
+        "event": "Get Workers",
+        "config": {
+          "status_filter": ["active", "leave", "terminated"],
+          "fields": [
+            "workerID",
+            "legalName",
+            "workEmail",
+            "departmentCode",
+            "payStatus",
+            "lastPayDate"
+          ],
+          "output_key": "payroll_workers"
+        }
+      },
+      {
+        "step": 3,
+        "app": "Webhooks by Zapier",
+        "event": "GET",
+        "config": {
+          "url": "{{LMS_API_ENDPOINT}}/users",
+          "headers": {
+            "Authorization": "Bearer {{LMS_API_TOKEN}}"
+          },
+          "query_params": {
+            "status": "all",
+            "fields": "email,name,courses_completed,compliance_status"
+          },
+          "output_key": "lms_learners"
+        }
+      },
+      {
+        "step": 4,
+        "app": "Airtable",
+        "event": "Create or Update Record",
+        "config": {
+          "base_id": "{{EMPLOYEE_DATA_HUB_BASE}}",
+          "table": "HRIS_Records",
+          "match_field": "employee_id",
+          "fields": {
+            "employee_id": "{{hris_employees.id}}",
+            "full_name": "{{hris_employees.displayName}}",
+            "work_email": "{{hris_employees.workEmail}}",
+            "department": "{{hris_employees.department}}",
+            "hris_status": "{{hris_employees.employmentStatus}}",
+            "last_sync": "{{zap_timestamp}}"
+          }
+        }
+      },
+      {
+        "step": 5,
+        "app": "Airtable",
+        "event": "Create or Update Record",
+        "config": {
+          "base_id": "{{EMPLOYEE_DATA_HUB_BASE}}",
+          "table": "Payroll_Records",
+          "match_field": "worker_id",
+          "fields": {
+            "worker_id": "{{payroll_workers.workerID}}",
+            "legal_name": "{{payroll_workers.legalName}}",
+            "work_email": "{{payroll_workers.workEmail}}",
+            "payroll_status": "{{payroll_workers.payStatus}}",
+            "last_pay_date": "{{payroll_workers.lastPayDate}}",
+            "last_sync": "{{zap_timestamp}}"
+          }
+        }
+      },
+      {
+        "step": 6,
+        "app": "Airtable",
+        "event": "Create or Update Record",
+        "config": {
+          "base_id": "{{EMPLOYEE_DATA_HUB_BASE}}",
+          "table": "LMS_Records",
+          "match_field": "email",
+          "fields": {
+            "email": "{{lms_learners.email}}",
+            "learner_name": "{{lms_learners.name}}",
+            "courses_completed": "{{lms_learners.courses_completed}}",
+            "compliance_status": "{{lms_learners.compliance_status}}",
+            "last_sync": "{{zap_timestamp}}"
+          }
+        }
+      }
+    ]
+  }
+}`,
+              },
+              {
+                language: 'json',
+                title: 'Airtable Unified Employee View Configuration',
+                description:
+                  'Airtable formula configuration for creating a unified employee view that links records across HRIS, payroll, and LMS tables.',
+                code: `{
+  "airtable_schema": {
+    "base_name": "Employee Data Hub",
+    "tables": {
+      "Unified_Employee_View": {
+        "description": "Linked view combining all employee data sources",
+        "fields": [
+          {
+            "name": "Primary Email",
+            "type": "email",
+            "description": "Primary key for cross-system matching"
+          },
+          {
+            "name": "HRIS Record",
+            "type": "linked_record",
+            "linked_table": "HRIS_Records",
+            "lookup_field": "work_email"
+          },
+          {
+            "name": "Payroll Record",
+            "type": "linked_record",
+            "linked_table": "Payroll_Records",
+            "lookup_field": "work_email"
+          },
+          {
+            "name": "LMS Record",
+            "type": "linked_record",
+            "linked_table": "LMS_Records",
+            "lookup_field": "email"
+          },
+          {
+            "name": "Full Name",
+            "type": "rollup",
+            "rollup_table": "HRIS Record",
+            "rollup_field": "full_name"
+          },
+          {
+            "name": "Department",
+            "type": "rollup",
+            "rollup_table": "HRIS Record",
+            "rollup_field": "department"
+          },
+          {
+            "name": "HRIS Status",
+            "type": "rollup",
+            "rollup_table": "HRIS Record",
+            "rollup_field": "hris_status"
+          },
+          {
+            "name": "Payroll Status",
+            "type": "rollup",
+            "rollup_table": "Payroll Record",
+            "rollup_field": "payroll_status"
+          },
+          {
+            "name": "Compliance Current",
+            "type": "rollup",
+            "rollup_table": "LMS Record",
+            "rollup_field": "compliance_status"
+          },
+          {
+            "name": "Has Data Mismatch",
+            "type": "formula",
+            "formula": "OR(AND({HRIS Status}='terminated', {Payroll Status}='active'), AND({HRIS Status}='terminated', {Compliance Current}='compliant'), BLANK({Payroll Record}), BLANK({LMS Record}))"
+          },
+          {
+            "name": "Mismatch Type",
+            "type": "formula",
+            "formula": "IF(AND({HRIS Status}='terminated', {Payroll Status}='active'), 'PAYROLL_LEAK', IF(AND({HRIS Status}='terminated', {Compliance Current}='compliant'), 'LMS_STALE', IF(BLANK({Payroll Record}), 'MISSING_PAYROLL', IF(BLANK({LMS Record}), 'MISSING_LMS', 'OK'))))"
+          }
+        ],
+        "views": [
+          {
+            "name": "Data Mismatches",
+            "type": "grid",
+            "filter": "{Has Data Mismatch} = TRUE()",
+            "sort": [
+              {"field": "Mismatch Type", "direction": "asc"},
+              {"field": "Full Name", "direction": "asc"}
+            ]
+          },
+          {
+            "name": "Terminated Still Active",
+            "type": "grid",
+            "filter": "AND({HRIS Status}='terminated', OR({Payroll Status}='active', {Compliance Current}='compliant'))"
+          }
+        ]
+      }
+    }
+  }
+}`,
+              },
+            ],
+          },
+          {
+            stepNumber: 2,
+            title: 'AI-Powered Analysis',
+            description:
+              'Use ChatGPT or Claude to analyze the unified employee data, identify cross-system discrepancies, and generate actionable remediation recommendations.',
+            toolsUsed: ['ChatGPT Plus', 'Claude Pro'],
+            codeSnippets: [
+              {
+                language: 'yaml',
+                title: 'Employee Data Fragmentation Analysis Prompt',
+                description:
+                  'Structured prompt for ChatGPT/Claude to analyze cross-system employee data and identify identity mismatches and data quality issues.',
+                code: `employee_data_analysis_prompt:
+  system_context: |
+    You are an HR data integration specialist with expertise in identity
+    resolution and data quality. You help organizations unify employee
+    records across multiple HR systems including HRIS, payroll, benefits,
+    and learning management systems.
+
+  user_prompt_template: |
+    ## Cross-System Employee Data Analysis
+
+    I need help analyzing employee data from multiple HR systems to identify
+    fragmentation issues and data quality problems.
+
+    ### HRIS Data (BambooHR) - {{hris_count}} records
+    \`\`\`csv
+    employee_id,full_name,work_email,department,status,hire_date,term_date
+    {{hris_data_sample}}
+    \`\`\`
+
+    ### Payroll Data (ADP) - {{payroll_count}} records
+    \`\`\`csv
+    worker_id,legal_name,work_email,dept_code,pay_status,last_pay_date
+    {{payroll_data_sample}}
+    \`\`\`
+
+    ### LMS Data - {{lms_count}} records
+    \`\`\`csv
+    email,learner_name,courses_completed,compliance_status,last_login
+    {{lms_data_sample}}
+    \`\`\`
+
+    Please analyze and provide:
+
+    1. **Identity Matching Assessment**
+       - How many records can be matched across all 3 systems?
+       - Which records exist in some systems but not others?
+       - Are there potential duplicates or near-matches?
+
+    2. **Status Inconsistencies**
+       - Terminated in HRIS but active in payroll (cost leak)
+       - Terminated in HRIS but compliant in LMS (stale access)
+       - Active in HRIS but missing from payroll (setup issue)
+
+    3. **Data Quality Issues**
+       - Name mismatches between systems (e.g., "Bob" vs "Robert")
+       - Missing or inconsistent email addresses
+       - Department/cost center mapping gaps
+
+    4. **Compliance Risks**
+       - Ghost employees (in payroll but not HRIS)
+       - Unauthorized system access (terminated but LMS active)
+       - Audit-trail gaps
+
+    5. **Prioritized Action Plan**
+       - High: Immediate termination propagation needed
+       - Medium: Identity resolution required
+       - Low: Data hygiene improvements
+
+  expected_output_format: |
+    Provide a structured report with:
+    - Executive summary (impact statement)
+    - Detailed findings by category
+    - Specific records requiring action (include IDs)
+    - Recommended process improvements
+    - Estimated cost savings from resolution`,
+              },
+              {
+                language: 'yaml',
+                title: 'Identity Resolution Prompt Template',
+                description:
+                  'Prompt for AI-assisted identity matching when email addresses do not align across systems.',
+                code: `identity_resolution_prompt:
+  system_context: |
+    You are an expert in probabilistic record matching and identity resolution.
+    You help match employee records across systems when exact key matches fail,
+    using name similarity, department alignment, and temporal proximity.
+
+  user_prompt_template: |
+    ## Identity Resolution Request
+
+    I have employee records that could not be matched by email address.
+    Help me determine which records likely represent the same person.
+
+    ### Unmatched HRIS Records
+    \`\`\`csv
+    {{unmatched_hris}}
+    \`\`\`
+
+    ### Unmatched Payroll Records
+    \`\`\`csv
+    {{unmatched_payroll}}
+    \`\`\`
+
+    For each potential match, consider:
+
+    1. **Name Similarity**
+       - Exact match, nickname variations (Bob/Robert, Bill/William)
+       - Maiden name vs married name
+       - Name order differences (First Last vs Last, First)
+       - Typos and phonetic similarity
+
+    2. **Contextual Signals**
+       - Same department/cost center
+       - Similar hire dates (within 30 days)
+       - Same job title or level
+
+    3. **Confidence Scoring**
+       - HIGH (90%+): Strong name match + contextual alignment
+       - MEDIUM (70-89%): Partial name match OR strong contextual signals
+       - LOW (50-69%): Weak signals, manual review recommended
+       - NO MATCH (<50%): Likely different individuals
+
+    Please provide:
+
+    1. **Proposed Matches Table**
+       | HRIS ID | HRIS Name | Payroll ID | Payroll Name | Confidence | Reasoning |
+       |---------|-----------|------------|--------------|------------|-----------|
+
+    2. **Records Requiring Manual Review**
+       - List with specific questions for HR to verify
+
+    3. **Confirmed Non-Matches**
+       - HRIS-only records (need payroll setup)
+       - Payroll-only records (potential ghost employees)
+
+  output_format: |
+    Structured markdown with match confidence percentages
+    and clear action items for each category`,
+              },
+            ],
+          },
+          {
+            stepNumber: 3,
+            title: 'Automation & Delivery',
+            description:
+              'Configure Zapier workflows to automatically detect data fragmentation issues, trigger alerts for terminated employees with stale access, and deliver daily sync status reports.',
+            toolsUsed: ['Zapier', 'Slack', 'Airtable', 'Email'],
+            codeSnippets: [
+              {
+                language: 'json',
+                title: 'Stale Access Alert Workflow',
+                description:
+                  'Zapier workflow that detects terminated employees still active in downstream systems and triggers immediate deprovisioning alerts.',
+                code: `{
+  "zapier_workflow": {
+    "name": "Terminated Employee Stale Access Alert",
+    "trigger": {
+      "app": "Airtable",
+      "event": "New Record in View",
+      "config": {
+        "base_id": "{{EMPLOYEE_DATA_HUB_BASE}}",
+        "table": "Unified_Employee_View",
+        "view": "Terminated Still Active"
+      }
+    },
+    "actions": [
+      {
+        "step": 1,
+        "app": "Formatter by Zapier",
+        "event": "Date/Time",
+        "config": {
+          "input": "{{trigger.HRIS_term_date}}",
+          "transform": "compare",
+          "compare_to": "{{zap_today}}",
+          "output_key": "days_since_termination"
+        }
+      },
+      {
+        "step": 2,
+        "app": "Paths by Zapier",
+        "event": "Route by Urgency",
+        "config": {
+          "paths": [
+            {
+              "name": "Critical (>30 days)",
+              "condition": "{{days_since_termination}} > 30",
+              "continue_to": "step_3a"
+            },
+            {
+              "name": "Warning (7-30 days)",
+              "condition": "{{days_since_termination}} >= 7 AND {{days_since_termination}} <= 30",
+              "continue_to": "step_3b"
+            },
+            {
+              "name": "New (< 7 days)",
+              "condition": "{{days_since_termination}} < 7",
+              "continue_to": "step_3c"
+            }
+          ]
+        }
+      },
+      {
+        "step": "3a",
+        "app": "Slack",
+        "event": "Send Channel Message",
+        "config": {
+          "channel": "#hr-ops-critical",
+          "message_template": ":rotating_light: *CRITICAL: Terminated Employee Still Has Active Access*\\n\\n*Employee:* {{trigger.Full_Name}}\\n*Email:* {{trigger.Primary_Email}}\\n*Terminated:* {{trigger.HRIS_term_date}} ({{days_since_termination}} days ago)\\n*Active In:* {{trigger.Mismatch_Type}}\\n\\n*Immediate Action Required:*\\n- If PAYROLL_LEAK: Process final pay and terminate payroll record\\n- If LMS_STALE: Revoke LMS access and mark courses incomplete\\n\\n<{{airtable_record_url}}|View Full Record>",
+          "mention": "@hr-ops-oncall"
+        }
+      },
+      {
+        "step": "3b",
+        "app": "Slack",
+        "event": "Send Channel Message",
+        "config": {
+          "channel": "#hr-data-alerts",
+          "message_template": ":warning: *Stale Employee Access Detected*\\n\\n*Employee:* {{trigger.Full_Name}}\\n*Terminated:* {{trigger.HRIS_term_date}} ({{days_since_termination}} days ago)\\n*Issue:* {{trigger.Mismatch_Type}}\\n\\nPlease resolve within 48 hours.\\n<{{airtable_record_url}}|View Record>"
+        }
+      },
+      {
+        "step": "3c",
+        "app": "Airtable",
+        "event": "Update Record",
+        "config": {
+          "base_id": "{{EMPLOYEE_DATA_HUB_BASE}}",
+          "table": "Unified_Employee_View",
+          "record_id": "{{trigger.record_id}}",
+          "fields": {
+            "Alert_Sent": true,
+            "Alert_Timestamp": "{{zap_timestamp}}",
+            "SLA_Due_Date": "{{zap_today_plus_7_days}}"
+          }
+        }
+      },
+      {
+        "step": 4,
+        "app": "Airtable",
+        "event": "Create Record",
+        "config": {
+          "base_id": "{{EMPLOYEE_DATA_HUB_BASE}}",
+          "table": "Deprovisioning_Tasks",
+          "fields": {
+            "Employee_Email": "{{trigger.Primary_Email}}",
+            "Employee_Name": "{{trigger.Full_Name}}",
+            "Task_Type": "{{trigger.Mismatch_Type}}",
+            "Priority": "{{path_taken}}",
+            "Created_Date": "{{zap_timestamp}}",
+            "SLA_Due": "{{sla_due_date}}",
+            "Status": "Open"
+          }
+        }
+      }
+    ]
+  }
+}`,
+              },
+              {
+                language: 'json',
+                title: 'Daily Cross-System Sync Status Report',
+                description:
+                  'Zapier workflow that generates and delivers a daily employee data sync health report with match rates and outstanding issues.',
+                code: `{
+  "zapier_workflow": {
+    "name": "Daily Employee Data Sync Status Report",
+    "trigger": {
+      "app": "Schedule by Zapier",
+      "event": "Every Day",
+      "config": {
+        "time": "08:00",
+        "timezone": "America/New_York"
+      }
+    },
+    "actions": [
+      {
+        "step": 1,
+        "app": "Airtable",
+        "event": "Find Records",
+        "config": {
+          "base_id": "{{EMPLOYEE_DATA_HUB_BASE}}",
+          "table": "Unified_Employee_View",
+          "formula": "TRUE()",
+          "output_key": "all_records"
+        }
+      },
+      {
+        "step": 2,
+        "app": "Airtable",
+        "event": "Find Records",
+        "config": {
+          "base_id": "{{EMPLOYEE_DATA_HUB_BASE}}",
+          "table": "Unified_Employee_View",
+          "formula": "{Has Data Mismatch} = TRUE()",
+          "output_key": "mismatch_records"
+        }
+      },
+      {
+        "step": 3,
+        "app": "Airtable",
+        "event": "Find Records",
+        "config": {
+          "base_id": "{{EMPLOYEE_DATA_HUB_BASE}}",
+          "table": "Deprovisioning_Tasks",
+          "formula": "AND({Status} = 'Open', {Created_Date} < DATEADD(TODAY(), -7, 'days'))",
+          "output_key": "overdue_tasks"
+        }
+      },
+      {
+        "step": 4,
+        "app": "Code by Zapier",
+        "event": "Run JavaScript",
+        "config": {
+          "code": "const total = inputData.total_count;\\nconst mismatches = inputData.mismatch_count;\\nconst overdue = inputData.overdue_count;\\nconst matchRate = ((total - mismatches) / total * 100).toFixed(1);\\nconst healthStatus = matchRate >= 98 ? 'HEALTHY' : matchRate >= 95 ? 'WARNING' : 'CRITICAL';\\noutput = { matchRate, healthStatus, total, mismatches, overdue };",
+          "input_data": {
+            "total_count": "{{all_records.count}}",
+            "mismatch_count": "{{mismatch_records.count}}",
+            "overdue_count": "{{overdue_tasks.count}}"
+          }
+        }
+      },
+      {
+        "step": 5,
+        "app": "ChatGPT",
+        "event": "Conversation",
+        "config": {
+          "model": "gpt-4",
+          "system_message": "You are an HR data analyst. Generate a brief daily status summary.",
+          "user_message": "Generate a 2-paragraph daily sync status summary:\\n\\nMetrics:\\n- Total employees tracked: {{step4.total}}\\n- Cross-system match rate: {{step4.matchRate}}%\\n- Active data mismatches: {{step4.mismatches}}\\n- Overdue deprovisioning tasks: {{step4.overdue}}\\n- Health status: {{step4.healthStatus}}\\n\\nHighlight any concerns and recommend priorities for today.",
+          "max_tokens": 300
+        }
+      },
+      {
+        "step": 6,
+        "app": "Slack",
+        "event": "Send Channel Message",
+        "config": {
+          "channel": "#hr-data-sync",
+          "message_template": ":chart_with_upwards_trend: *Daily Employee Data Sync Report*\\n*Date:* {{zap_today}}\\n\\n*Health Status:* {{step4.healthStatus}} {{health_emoji}}\\n\\n*Key Metrics:*\\n- Total Employees: {{step4.total}}\\n- Match Rate: {{step4.matchRate}}%\\n- Active Mismatches: {{step4.mismatches}}\\n- Overdue Tasks: {{step4.overdue}}\\n\\n*AI Summary:*\\n{{step5.response}}\\n\\n<{{airtable_dashboard_url}}|View Full Dashboard>"
+        }
+      },
+      {
+        "step": 7,
+        "app": "Gmail",
+        "event": "Send Email",
+        "config": {
+          "to": "{{hr_leadership_email}}",
+          "subject": "Employee Data Sync Status - {{zap_today}} - {{step4.healthStatus}}",
+          "body_template": "<h2>Daily Employee Data Integration Report</h2>\\n<p><strong>Status:</strong> {{step4.healthStatus}}</p>\\n<table border='1' cellpadding='8'>\\n<tr><td>Total Employees</td><td>{{step4.total}}</td></tr>\\n<tr><td>Cross-System Match Rate</td><td>{{step4.matchRate}}%</td></tr>\\n<tr><td>Active Mismatches</td><td>{{step4.mismatches}}</td></tr>\\n<tr><td>Overdue Deprovisioning</td><td>{{step4.overdue}}</td></tr>\\n</table>\\n<h3>Summary</h3>\\n<p>{{step5.response}}</p>\\n<p><a href='{{airtable_dashboard_url}}'>View Full Dashboard</a></p>",
+          "is_html": true
+        }
+      }
+    ]
+  }
+}`,
+              },
+            ],
+          },
+        ],
+      },
+      aiAdvanced: {
+        overview:
+          'Deploy a multi-agent system where specialized AI agents handle identity matching, sync orchestration, termination propagation, and compliance monitoring, coordinated by a supervisor agent that ensures seamless employee data unification across all HR systems.',
+        estimatedMonthlyCost: '$600 - $1,200/month',
+        architecture:
+          'Supervisor agent coordinates five specialist agents: Identity Resolution Agent (fuzzy matching and master ID management), Sync Orchestration Agent (cross-system data flow), Termination Propagation Agent (downstream access revocation), Compliance Monitor Agent (audit trail and risk detection), and Reporting Agent (stakeholder communications). LangGraph orchestrates continuous sync with Redis-backed state persistence.',
+        agents: [
+          {
+            name: 'Identity Resolution Agent',
+            role: 'Master Identity Specialist',
+            goal: 'Match employee records across HRIS, payroll, benefits, and LMS using probabilistic matching algorithms. Maintain the master identity crosswalk and resolve ambiguous matches.',
+            tools: ['recordlinkage', 'fuzzywuzzy', 'pandas', 'dedupe', 'sqlalchemy'],
+          },
+          {
+            name: 'Sync Orchestration Agent',
+            role: 'Data Flow Coordinator',
+            goal: 'Coordinate data extraction from all HR systems, detect changes since last sync, and route updates to the unified employee data layer with conflict resolution.',
+            tools: ['BambooHR API', 'ADP API', 'LMS API', 'Benefits API', 'Redis', 'pandas'],
+          },
+          {
+            name: 'Termination Propagation Agent',
+            role: 'Access Revocation Specialist',
+            goal: 'Detect terminated employees in HRIS and ensure their access is revoked across all downstream systems within SLA. Queue deprovisioning tasks and track completion.',
+            tools: ['slack_sdk', 'jira-python', 'pandas', 'sqlalchemy'],
+          },
+          {
+            name: 'Compliance Monitor Agent',
+            role: 'Audit & Risk Specialist',
+            goal: 'Monitor for compliance risks including ghost employees, unauthorized access, and audit-trail gaps. Generate compliance reports and flag violations.',
+            tools: ['pandas', 'sqlalchemy', 'jinja2', 'sendgrid'],
+          },
+          {
+            name: 'Reporting Agent',
+            role: 'Stakeholder Communications Specialist',
+            goal: 'Generate sync status reports, data quality scorecards, and executive summaries tailored to different audiences from HR ops to leadership.',
+            tools: ['jinja2', 'markdown', 'slack_sdk', 'google-api-python-client'],
+          },
+          {
+            name: 'Supervisor Agent',
+            role: 'Workflow Orchestrator',
+            goal: 'Coordinate the specialist agents, manage sync dependencies, handle API failures gracefully, and ensure the employee data unification pipeline runs continuously.',
+            tools: ['langgraph', 'redis', 'langchain', 'langsmith'],
+          },
+        ],
+        orchestration: {
+          framework: 'LangGraph',
+          pattern: 'Supervisor',
+          stateManagement: 'Redis-backed state with event sourcing for audit trail and 90-day retention',
+        },
+        steps: [
+          {
+            stepNumber: 1,
+            title: 'Agent Architecture & Role Design',
+            description:
+              'Define the multi-agent architecture with CrewAI, specifying each agent role, goals, and tool access for the employee data unification pipeline.',
+            toolsUsed: ['CrewAI', 'LangChain'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'Employee Data Unification Agent Definitions',
+                description:
+                  'CrewAI agent definitions for identity resolution, sync orchestration, termination propagation, and compliance monitoring with their specialized tools.',
+                code: `"""Employee Data Unification Multi-Agent System - Agent Definitions."""
+from typing import List, Optional
+from crewai import Agent, Task, Crew, Process
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+
+
+class DataUnificationConfig(BaseModel):
+    """Configuration for employee data unification pipeline."""
+    identity_match_threshold: float = Field(default=0.85, description="Min confidence for auto-match")
+    termination_sla_days: int = Field(default=7, description="Days to propagate termination")
+    sync_frequency_hours: int = Field(default=6, description="Hours between full syncs")
+    ghost_employee_threshold_days: int = Field(default=30, description="Days in payroll without HRIS")
+
+
+class IdentityMatch(BaseModel):
+    """Schema for identity matching results."""
+    master_id: str
+    hris_id: Optional[str]
+    payroll_id: Optional[str]
+    lms_email: Optional[str]
+    benefits_ssn_hash: Optional[str]
+    confidence: float
+    match_type: str  # 'exact', 'fuzzy', 'manual_review'
+
+
+# Initialize the LLM
+llm = ChatOpenAI(
+    model="gpt-4-turbo-preview",
+    temperature=0.1,
+    max_tokens=4096,
+)
+
+
+# --- Identity Resolution Agent ---
+identity_resolution_agent = Agent(
+    role="Master Identity Resolution Specialist",
+    goal="""Match employee records across HRIS, payroll, benefits, and LMS systems
+    using probabilistic matching. Maintain the master identity crosswalk, resolve
+    ambiguous matches, and prevent duplicate master IDs.""",
+    backstory="""You are an expert in data integration and entity resolution with
+    deep experience in HR systems. You understand the challenges of matching records
+    when employees have nicknames, name changes, inconsistent email domains, and
+    different ID formats across systems. You balance automation with human review
+    to ensure data quality while maintaining operational efficiency.""",
+    verbose=True,
+    allow_delegation=False,
+    llm=llm,
+    tools=[],  # Tools added separately
+    max_iter=5,
+    memory=True,
+)
+
+
+# --- Sync Orchestration Agent ---
+sync_orchestration_agent = Agent(
+    role="Cross-System Data Flow Coordinator",
+    goal="""Coordinate data extraction from all HR systems, detect changes since
+    last sync, and route updates to the unified employee data layer. Handle API
+    failures, rate limits, and data conflicts gracefully.""",
+    backstory="""You are a data engineering specialist who has built dozens of
+    HR system integrations. You understand the quirks of each vendor's API,
+    common failure modes, and best practices for incremental syncing. You
+    prioritize data freshness while respecting API limits and ensuring no
+    records are lost during sync failures.""",
+    verbose=True,
+    allow_delegation=False,
+    llm=llm,
+    tools=[],
+    max_iter=5,
+    memory=True,
+)
+
+
+# --- Termination Propagation Agent ---
+termination_propagation_agent = Agent(
+    role="Employee Offboarding Access Revocation Specialist",
+    goal="""Detect terminated employees in HRIS and ensure their access is revoked
+    across all downstream systems within the SLA. Create deprovisioning tasks,
+    track completion, and escalate overdue items.""",
+    backstory="""You are a security-focused HR operations specialist who
+    understands the compliance and financial risks of delayed offboarding.
+    You have seen companies pay benefits to terminated employees for months
+    and face audit findings for stale LMS access. You are relentless about
+    closing access gaps quickly and documenting everything.""",
+    verbose=True,
+    allow_delegation=False,
+    llm=llm,
+    tools=[],
+    max_iter=5,
+    memory=True,
+)
+
+
+# --- Compliance Monitor Agent ---
+compliance_monitor_agent = Agent(
+    role="HR Data Compliance & Audit Specialist",
+    goal="""Monitor for compliance risks including ghost employees, unauthorized
+    system access, and audit-trail gaps. Generate compliance reports, flag
+    violations, and maintain evidence for auditors.""",
+    backstory="""You are a compliance expert who has guided companies through
+    SOX audits, SOC 2 certifications, and HR regulatory reviews. You know what
+    auditors look for and proactively identify issues before they become findings.
+    You document everything meticulously and can explain the data lineage of
+    any employee record.""",
+    verbose=True,
+    allow_delegation=False,
+    llm=llm,
+    tools=[],
+    max_iter=3,
+    memory=True,
+)
+
+
+# --- Reporting Agent ---
+reporting_agent = Agent(
+    role="Employee Data Analytics Communications Specialist",
+    goal="""Generate sync status reports, data quality scorecards, and executive
+    summaries tailored to different audiences. Translate technical findings into
+    business impact and actionable recommendations.""",
+    backstory="""You are a seasoned HR analytics communicator who bridges the
+    gap between data engineers and business stakeholders. You know that executives
+    want the 'so what' in three sentences, while HR ops needs step-by-step
+    resolution guides. You create compelling visualizations and write clearly.""",
+    verbose=True,
+    allow_delegation=False,
+    llm=llm,
+    tools=[],
+    max_iter=3,
+    memory=True,
+)
+
+
+# --- Supervisor Agent ---
+supervisor_agent = Agent(
+    role="Employee Data Unification Pipeline Orchestrator",
+    goal="""Coordinate the specialist agents, manage sync dependencies, handle
+    API failures gracefully, and ensure the employee data unification pipeline
+    runs continuously. Escalate critical issues to human operators.""",
+    backstory="""You are the chief architect of the employee data integration
+    platform. You understand the dependencies between agents, know when to
+    retry vs skip vs escalate, and maintain the overall health of the pipeline.
+    You communicate proactively about issues and never let silent failures
+    accumulate.""",
+    verbose=True,
+    allow_delegation=True,
+    llm=llm,
+    tools=[],
+    max_iter=10,
+    memory=True,
+)
+
+
+def create_data_unification_crew(config: DataUnificationConfig) -> Crew:
+    """Create the employee data unification crew with configured agents."""
+
+    # Define tasks for each agent
+    identity_task = Task(
+        description="""Pull new/changed records from all HR systems.
+        Match records using email, name similarity, and department alignment.
+        Update master identity crosswalk. Flag records needing manual review.
+        Confidence threshold: >{threshold}.""".format(
+            threshold=config.identity_match_threshold
+        ),
+        expected_output="Updated crosswalk with match confidence scores",
+        agent=identity_resolution_agent,
+    )
+
+    sync_task = Task(
+        description="""Extract incremental changes from BambooHR, ADP, benefits,
+        and LMS since last sync. Detect conflicts and apply resolution rules.
+        Update unified employee profiles. Log all changes for audit.""",
+        expected_output="Sync summary with records updated, conflicts resolved",
+        agent=sync_orchestration_agent,
+    )
+
+    termination_task = Task(
+        description="""Scan for employees terminated in HRIS within last 24 hours.
+        Check downstream system status. Create deprovisioning tasks for any
+        with active access. SLA: {sla} days for full propagation.""".format(
+            sla=config.termination_sla_days
+        ),
+        expected_output="Deprovisioning task list with priorities and SLAs",
+        agent=termination_propagation_agent,
+        context=[sync_task],  # Depends on fresh sync data
+    )
+
+    compliance_task = Task(
+        description="""Audit the unified data for compliance risks:
+        - Ghost employees (payroll > {ghost_days} days without HRIS)
+        - Stale access (terminated > {sla} days with downstream active)
+        - Audit trail gaps (missing sync logs)
+        Generate compliance scorecard.""".format(
+            ghost_days=config.ghost_employee_threshold_days,
+            sla=config.termination_sla_days,
+        ),
+        expected_output="Compliance scorecard with risk items and remediation steps",
+        agent=compliance_monitor_agent,
+        context=[sync_task, termination_task],
+    )
+
+    reporting_task = Task(
+        description="""Compile findings into three deliverables:
+        1. Executive dashboard update (3 KPIs with trends)
+        2. HR Ops daily action list (prioritized tasks)
+        3. Weekly compliance summary (for audit file)""",
+        expected_output="Three formatted reports for different audiences",
+        agent=reporting_agent,
+        context=[identity_task, sync_task, termination_task, compliance_task],
+    )
+
+    return Crew(
+        agents=[
+            identity_resolution_agent,
+            sync_orchestration_agent,
+            termination_propagation_agent,
+            compliance_monitor_agent,
+            reporting_agent,
+        ],
+        tasks=[identity_task, sync_task, termination_task, compliance_task, reporting_task],
+        process=Process.sequential,
+        manager_agent=supervisor_agent,
+        verbose=True,
+    )`,
+              },
+            ],
+          },
+          {
+            stepNumber: 2,
+            title: 'Data Ingestion Agent(s)',
+            description:
+              'Implement the Identity Resolution and Sync Orchestration agents with tools for pulling data from multiple HR systems and performing probabilistic record matching.',
+            toolsUsed: ['CrewAI', 'LangChain', 'recordlinkage', 'pandas', 'sqlalchemy'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'Identity Resolution Agent Tools',
+                description:
+                  'Custom CrewAI tools for probabilistic record matching across HR systems using the recordlinkage library.',
+                code: `"""Identity Resolution Agent Tools for Employee Data Unification."""
+import hashlib
+import os
+from typing import Any, Dict, List, Optional, Tuple, Type
+
+import numpy as np
+import pandas as pd
+import recordlinkage
+from crewai.tools import BaseTool
+from fuzzywuzzy import fuzz
+from pydantic import BaseModel, Field
+from recordlinkage.index import Full, Block
+from sqlalchemy import create_engine, text
+
+
+class ProbabilisticMatchInput(BaseModel):
+    """Input schema for probabilistic record matching."""
+    source_a_records: List[Dict] = Field(description="Records from first system")
+    source_b_records: List[Dict] = Field(description="Records from second system")
+    blocking_fields: List[str] = Field(
+        default=["department"],
+        description="Fields to use for blocking (reduce comparison space)"
+    )
+    match_threshold: float = Field(default=0.85, description="Min score for auto-match")
+
+
+class ProbabilisticMatchTool(BaseTool):
+    """Tool for probabilistic record matching using recordlinkage."""
+
+    name: str = "probabilistic_match"
+    description: str = """Matches employee records between two systems using
+    probabilistic record linkage. Handles name variations, typos, and missing
+    data. Returns matches with confidence scores."""
+    args_schema: Type[BaseModel] = ProbabilisticMatchInput
+
+    def _run(
+        self,
+        source_a_records: List[Dict],
+        source_b_records: List[Dict],
+        blocking_fields: List[str] = None,
+        match_threshold: float = 0.85,
+    ) -> Dict[str, Any]:
+        """Execute probabilistic record matching."""
+
+        blocking_fields = blocking_fields or ["department"]
+
+        # Convert to DataFrames
+        df_a = pd.DataFrame(source_a_records)
+        df_b = pd.DataFrame(source_b_records)
+
+        if df_a.empty or df_b.empty:
+            return {"error": "One or both record sets are empty"}
+
+        # Standardize column names
+        df_a.columns = df_a.columns.str.lower().str.replace(" ", "_")
+        df_b.columns = df_b.columns.str.lower().str.replace(" ", "_")
+
+        # Find name columns
+        name_col_a = next(
+            (c for c in df_a.columns if "name" in c.lower()),
+            df_a.columns[0]
+        )
+        name_col_b = next(
+            (c for c in df_b.columns if "name" in c.lower()),
+            df_b.columns[0]
+        )
+
+        # Find email columns
+        email_col_a = next(
+            (c for c in df_a.columns if "email" in c.lower()),
+            None
+        )
+        email_col_b = next(
+            (c for c in df_b.columns if "email" in c.lower()),
+            None
+        )
+
+        # Create indexer with blocking
+        indexer = recordlinkage.Index()
+
+        # Use blocking on available fields to reduce comparisons
+        valid_blocking = [
+            f for f in blocking_fields
+            if f in df_a.columns and f in df_b.columns
+        ]
+        if valid_blocking:
+            indexer.block(valid_blocking[0])
+        else:
+            indexer.full()  # Compare all pairs if no blocking field
+
+        candidate_pairs = indexer.index(df_a, df_b)
+
+        # Create comparison features
+        compare = recordlinkage.Compare()
+
+        # Name comparison with multiple methods
+        compare.string(
+            name_col_a, name_col_b,
+            method="jarowinkler",
+            threshold=0.8,
+            label="name_jaro"
+        )
+        compare.string(
+            name_col_a, name_col_b,
+            method="levenshtein",
+            threshold=0.8,
+            label="name_lev"
+        )
+
+        # Email comparison if available
+        if email_col_a and email_col_b:
+            compare.exact(email_col_a, email_col_b, label="email_exact")
+            compare.string(
+                email_col_a, email_col_b,
+                method="jarowinkler",
+                label="email_jaro"
+            )
+
+        # Department comparison if available
+        if "department" in df_a.columns and "department" in df_b.columns:
+            compare.exact("department", "department", label="dept_exact")
+
+        # Compute comparison features
+        features = compare.compute(candidate_pairs, df_a, df_b)
+
+        # Calculate overall match score (weighted average)
+        weights = {
+            "name_jaro": 0.3,
+            "name_lev": 0.2,
+            "email_exact": 0.25,
+            "email_jaro": 0.15,
+            "dept_exact": 0.1,
+        }
+
+        # Apply weights to available features
+        available_weights = {k: v for k, v in weights.items() if k in features.columns}
+        total_weight = sum(available_weights.values())
+        normalized_weights = {k: v/total_weight for k, v in available_weights.items()}
+
+        features["match_score"] = sum(
+            features[col] * weight
+            for col, weight in normalized_weights.items()
+            if col in features.columns
+        )
+
+        # Classify matches
+        auto_matches = features[features["match_score"] >= match_threshold]
+        review_needed = features[
+            (features["match_score"] >= 0.6) &
+            (features["match_score"] < match_threshold)
+        ]
+        non_matches = features[features["match_score"] < 0.6]
+
+        # Build results
+        matched_pairs = []
+        for (idx_a, idx_b), row in auto_matches.iterrows():
+            matched_pairs.append({
+                "source_a_index": int(idx_a),
+                "source_b_index": int(idx_b),
+                "source_a_record": source_a_records[idx_a],
+                "source_b_record": source_b_records[idx_b],
+                "match_score": round(float(row["match_score"]), 3),
+                "match_type": "auto",
+            })
+
+        review_pairs = []
+        for (idx_a, idx_b), row in review_needed.iterrows():
+            review_pairs.append({
+                "source_a_index": int(idx_a),
+                "source_b_index": int(idx_b),
+                "source_a_record": source_a_records[idx_a],
+                "source_b_record": source_b_records[idx_b],
+                "match_score": round(float(row["match_score"]), 3),
+                "match_type": "manual_review",
+            })
+
+        # Find unmatched records
+        matched_a_indices = set(auto_matches.index.get_level_values(0))
+        matched_b_indices = set(auto_matches.index.get_level_values(1))
+
+        unmatched_a = [
+            {"index": i, "record": source_a_records[i]}
+            for i in range(len(df_a))
+            if i not in matched_a_indices
+        ]
+        unmatched_b = [
+            {"index": i, "record": source_b_records[i]}
+            for i in range(len(df_b))
+            if i not in matched_b_indices
+        ]
+
+        return {
+            "success": True,
+            "summary": {
+                "source_a_count": len(df_a),
+                "source_b_count": len(df_b),
+                "auto_matched": len(matched_pairs),
+                "needs_review": len(review_pairs),
+                "unmatched_a": len(unmatched_a),
+                "unmatched_b": len(unmatched_b),
+                "match_rate_pct": round(
+                    len(matched_pairs) / max(len(df_a), len(df_b), 1) * 100, 2
+                ),
+            },
+            "auto_matches": matched_pairs,
+            "manual_review": review_pairs,
+            "unmatched_source_a": unmatched_a[:50],  # Limit for response size
+            "unmatched_source_b": unmatched_b[:50],
+            "methodology": {
+                "blocking_fields": valid_blocking,
+                "match_threshold": match_threshold,
+                "features_used": list(features.columns),
+                "weights": normalized_weights,
+            },
+        }
+
+
+class CrosswalkUpdateInput(BaseModel):
+    """Input schema for updating the master identity crosswalk."""
+    matches: List[Dict] = Field(description="Matched record pairs with scores")
+    source_a_system: str = Field(description="Name of first system (e.g., 'hris')")
+    source_b_system: str = Field(description="Name of second system (e.g., 'payroll')")
+
+
+class CrosswalkUpdateTool(BaseTool):
+    """Tool for updating the master identity crosswalk."""
+
+    name: str = "update_identity_crosswalk"
+    description: str = """Updates the master identity crosswalk with new matches.
+    Creates new master IDs for unlinked records, links existing IDs for matched
+    records, and logs all changes for audit."""
+    args_schema: Type[BaseModel] = CrosswalkUpdateInput
+
+    def __init__(self, database_url: Optional[str] = None):
+        super().__init__()
+        self._database_url = database_url or os.environ.get("DATABASE_URL")
+
+    def _run(
+        self,
+        matches: List[Dict],
+        source_a_system: str,
+        source_b_system: str,
+    ) -> Dict[str, Any]:
+        """Update the identity crosswalk with matched records."""
+
+        if not self._database_url:
+            return {"error": "Database URL not configured"}
+
+        engine = create_engine(self._database_url)
+        created_count = 0
+        linked_count = 0
+        errors = []
+
+        id_field_map = {
+            "hris": "bamboohr_id",
+            "payroll": "adp_payroll_id",
+            "lms": "lms_email",
+            "benefits": "benefits_ssn_hash",
+        }
+
+        source_a_field = id_field_map.get(source_a_system.lower())
+        source_b_field = id_field_map.get(source_b_system.lower())
+
+        if not source_a_field or not source_b_field:
+            return {"error": f"Unknown system: {source_a_system} or {source_b_system}"}
+
+        with engine.begin() as conn:
+            for match in matches:
+                try:
+                    source_a_id = match.get("source_a_record", {}).get("id") or \
+                                  match.get("source_a_record", {}).get("employee_id")
+                    source_b_id = match.get("source_b_record", {}).get("id") or \
+                                  match.get("source_b_record", {}).get("worker_id") or \
+                                  match.get("source_b_record", {}).get("email")
+
+                    # Check if either ID already exists in crosswalk
+                    existing = conn.execute(text(f"""
+                        SELECT master_id, {source_a_field}, {source_b_field}
+                        FROM hr_unified.employee_identity
+                        WHERE {source_a_field} = :a_id OR {source_b_field} = :b_id
+                    """), {"a_id": source_a_id, "b_id": source_b_id}).fetchone()
+
+                    if existing:
+                        # Update existing record to link both IDs
+                        conn.execute(text(f"""
+                            UPDATE hr_unified.employee_identity
+                            SET {source_a_field} = COALESCE({source_a_field}, :a_id),
+                                {source_b_field} = COALESCE({source_b_field}, :b_id),
+                                updated_at = NOW()
+                            WHERE master_id = :master_id
+                        """), {
+                            "a_id": source_a_id,
+                            "b_id": source_b_id,
+                            "master_id": existing[0],
+                        })
+                        linked_count += 1
+                    else:
+                        # Create new crosswalk entry
+                        conn.execute(text(f"""
+                            INSERT INTO hr_unified.employee_identity
+                                ({source_a_field}, {source_b_field})
+                            VALUES (:a_id, :b_id)
+                        """), {"a_id": source_a_id, "b_id": source_b_id})
+                        created_count += 1
+
+                except Exception as e:
+                    errors.append({
+                        "match": match,
+                        "error": str(e),
+                    })
+
+        return {
+            "success": len(errors) == 0,
+            "summary": {
+                "total_matches_processed": len(matches),
+                "new_master_ids_created": created_count,
+                "existing_records_linked": linked_count,
+                "errors": len(errors),
+            },
+            "errors": errors[:10],  # Limit error list
+        }
+
+
+# Tool registrations
+identity_resolution_tools = [
+    ProbabilisticMatchTool(),
+    CrosswalkUpdateTool(),
+]`,
+              },
+            ],
+          },
+          {
+            stepNumber: 3,
+            title: 'Analysis & Decision Agent(s)',
+            description:
+              'Implement the Termination Propagation and Compliance Monitor agents with tools for detecting stale access and generating compliance reports.',
+            toolsUsed: ['CrewAI', 'pandas', 'sqlalchemy', 'slack_sdk'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'Termination Propagation & Compliance Tools',
+                description:
+                  'Tools for detecting terminated employees with stale downstream access and generating compliance audit reports.',
+                code: `"""Termination Propagation & Compliance Monitor Agent Tools."""
+import os
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional, Type
+
+import pandas as pd
+from crewai.tools import BaseTool
+from pydantic import BaseModel, Field
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
+from sqlalchemy import create_engine, text
+
+
+class StaleAccessDetectionInput(BaseModel):
+    """Input schema for stale access detection."""
+    sla_days: int = Field(default=7, description="Days allowed for termination propagation")
+    include_resolved: bool = Field(default=False, description="Include already-resolved issues")
+
+
+class StaleAccessDetectionTool(BaseTool):
+    """Tool for detecting terminated employees with active downstream access."""
+
+    name: str = "detect_stale_access"
+    description: str = """Scans for terminated employees who still have active
+    access in payroll, benefits, or LMS systems beyond the allowed SLA."""
+    args_schema: Type[BaseModel] = StaleAccessDetectionInput
+
+    def __init__(self, database_url: Optional[str] = None):
+        super().__init__()
+        self._database_url = database_url or os.environ.get("DATABASE_URL")
+
+    def _run(
+        self,
+        sla_days: int = 7,
+        include_resolved: bool = False,
+    ) -> Dict[str, Any]:
+        """Detect stale access for terminated employees."""
+
+        if not self._database_url:
+            return {"error": "Database URL not configured"}
+
+        engine = create_engine(self._database_url)
+
+        query = text("""
+            SELECT
+                ep.master_id,
+                ep.full_name,
+                ep.work_email,
+                ep.department,
+                ep.termination_date,
+                CURRENT_DATE - ep.termination_date AS days_since_termination,
+                ep.payroll_status,
+                ep.benefits_status,
+                ep.compliance_current AS lms_active,
+                CASE
+                    WHEN ep.payroll_status = 'active' THEN 'PAYROLL_LEAK'
+                    WHEN ep.benefits_status = 'active' THEN 'BENEFITS_LEAK'
+                    WHEN ep.compliance_current = TRUE THEN 'LMS_STALE'
+                    ELSE 'UNKNOWN'
+                END AS violation_type,
+                CASE
+                    WHEN CURRENT_DATE - ep.termination_date > 30 THEN 'critical'
+                    WHEN CURRENT_DATE - ep.termination_date > :sla_days THEN 'overdue'
+                    ELSE 'within_sla'
+                END AS urgency
+            FROM hr_unified.v_employee_profile ep
+            WHERE ep.hris_status = 'terminated'
+              AND ep.termination_date IS NOT NULL
+              AND (
+                  ep.payroll_status = 'active'
+                  OR ep.benefits_status = 'active'
+                  OR ep.compliance_current = TRUE
+              )
+            ORDER BY ep.termination_date ASC
+        """)
+
+        with engine.connect() as conn:
+            df = pd.read_sql(query, conn, params={"sla_days": sla_days})
+
+        if df.empty:
+            return {
+                "success": True,
+                "message": "No stale access detected",
+                "summary": {
+                    "total_violations": 0,
+                    "critical": 0,
+                    "overdue": 0,
+                    "within_sla": 0,
+                },
+                "violations": [],
+            }
+
+        # Summarize by urgency
+        urgency_counts = df["urgency"].value_counts().to_dict()
+
+        # Summarize by violation type
+        type_counts = df["violation_type"].value_counts().to_dict()
+
+        return {
+            "success": True,
+            "summary": {
+                "total_violations": len(df),
+                "critical": urgency_counts.get("critical", 0),
+                "overdue": urgency_counts.get("overdue", 0),
+                "within_sla": urgency_counts.get("within_sla", 0),
+                "by_type": type_counts,
+            },
+            "violations": df.to_dict(orient="records"),
+            "sla_used_days": sla_days,
+            "detection_timestamp": datetime.now().isoformat(),
+        }
+
+
+class DeprovisioningTaskInput(BaseModel):
+    """Input schema for creating deprovisioning tasks."""
+    violations: List[Dict] = Field(description="Stale access violations to create tasks for")
+    notify_slack: bool = Field(default=True, description="Send Slack notifications")
+
+
+class DeprovisioningTaskTool(BaseTool):
+    """Tool for creating deprovisioning tasks from stale access violations."""
+
+    name: str = "create_deprovisioning_tasks"
+    description: str = """Creates deprovisioning tasks for each stale access
+    violation, assigns priorities based on urgency, and optionally notifies
+    via Slack."""
+    args_schema: Type[BaseModel] = DeprovisioningTaskInput
+
+    def __init__(
+        self,
+        database_url: Optional[str] = None,
+        slack_token: Optional[str] = None,
+    ):
+        super().__init__()
+        self._database_url = database_url or os.environ.get("DATABASE_URL")
+        self._slack_token = slack_token or os.environ.get("SLACK_BOT_TOKEN")
+
+    def _run(
+        self,
+        violations: List[Dict],
+        notify_slack: bool = True,
+    ) -> Dict[str, Any]:
+        """Create deprovisioning tasks and notify stakeholders."""
+
+        if not self._database_url:
+            return {"error": "Database URL not configured"}
+
+        engine = create_engine(self._database_url)
+        created_tasks = []
+        slack_notifications = []
+
+        sla_map = {
+            "critical": 1,  # 1 day SLA for critical
+            "overdue": 3,   # 3 days for overdue
+            "within_sla": 7,  # 7 days for within SLA
+        }
+
+        with engine.begin() as conn:
+            for violation in violations:
+                urgency = violation.get("urgency", "within_sla")
+                sla_days = sla_map.get(urgency, 7)
+                due_date = date.today() + timedelta(days=sla_days)
+
+                # Insert task
+                result = conn.execute(text("""
+                    INSERT INTO hr_unified.deprovision_queue
+                        (master_id, employee_name, employee_email, system,
+                         action, priority, detected_date, sla_due_date)
+                    VALUES
+                        (:master_id, :name, :email, :system,
+                         :action, :priority, CURRENT_DATE, :due_date)
+                    ON CONFLICT (master_id, system) DO UPDATE SET
+                        priority = EXCLUDED.priority,
+                        sla_due_date = LEAST(deprovision_queue.sla_due_date, EXCLUDED.sla_due_date)
+                    RETURNING id
+                """), {
+                    "master_id": violation["master_id"],
+                    "name": violation["full_name"],
+                    "email": violation.get("work_email"),
+                    "system": violation["violation_type"].lower().split("_")[0],
+                    "action": f"Terminate {violation['violation_type']}",
+                    "priority": urgency,
+                    "due_date": due_date,
+                })
+
+                task_id = result.fetchone()[0]
+                created_tasks.append({
+                    "task_id": task_id,
+                    "employee": violation["full_name"],
+                    "violation": violation["violation_type"],
+                    "urgency": urgency,
+                    "sla_due": str(due_date),
+                })
+
+        # Send Slack notifications for critical items
+        if notify_slack and self._slack_token:
+            critical_violations = [v for v in violations if v.get("urgency") == "critical"]
+            if critical_violations:
+                try:
+                    client = WebClient(token=self._slack_token)
+                    message = self._format_slack_alert(critical_violations)
+                    response = client.chat_postMessage(
+                        channel="#hr-ops-critical",
+                        text=message,
+                        mrkdwn=True,
+                    )
+                    slack_notifications.append({
+                        "channel": "#hr-ops-critical",
+                        "message_ts": response["ts"],
+                        "violations_count": len(critical_violations),
+                    })
+                except SlackApiError as e:
+                    slack_notifications.append({
+                        "error": str(e),
+                    })
+
+        return {
+            "success": True,
+            "summary": {
+                "tasks_created": len(created_tasks),
+                "critical_alerts_sent": len([n for n in slack_notifications if "error" not in n]),
+            },
+            "tasks": created_tasks,
+            "slack_notifications": slack_notifications,
+        }
+
+    def _format_slack_alert(self, violations: List[Dict]) -> str:
+        """Format critical violations for Slack notification."""
+        header = ":rotating_light: *CRITICAL: Stale Access Requires Immediate Action*\\n\\n"
+        rows = []
+        for v in violations[:10]:  # Limit to 10 in message
+            rows.append(
+                f"- *{v['full_name']}* | Terminated {v['days_since_termination']} days ago | "
+                f"{v['violation_type']}"
+            )
+        footer = f"\\n\\n_{len(violations)} total critical violations. <{{dashboard_url}}|View All>_"
+        return header + "\\n".join(rows) + footer
+
+
+class ComplianceReportInput(BaseModel):
+    """Input schema for compliance report generation."""
+    report_period_days: int = Field(default=30, description="Days to include in report")
+    include_resolved: bool = Field(default=True, description="Include resolved issues")
+
+
+class ComplianceReportTool(BaseTool):
+    """Tool for generating compliance audit reports."""
+
+    name: str = "generate_compliance_report"
+    description: str = """Generates a comprehensive compliance report covering
+    ghost employees, stale access, audit trail completeness, and SLA performance."""
+    args_schema: Type[BaseModel] = ComplianceReportInput
+
+    def __init__(self, database_url: Optional[str] = None):
+        super().__init__()
+        self._database_url = database_url or os.environ.get("DATABASE_URL")
+
+    def _run(
+        self,
+        report_period_days: int = 30,
+        include_resolved: bool = True,
+    ) -> Dict[str, Any]:
+        """Generate compliance audit report."""
+
+        if not self._database_url:
+            return {"error": "Database URL not configured"}
+
+        engine = create_engine(self._database_url)
+        report_data = {}
+
+        with engine.connect() as conn:
+            # 1. Ghost employee check (in payroll but not HRIS)
+            ghost_query = text("""
+                SELECT COUNT(*) as count
+                FROM hr_unified.v_employee_profile
+                WHERE hris_status IS NULL
+                  AND payroll_status = 'active'
+            """)
+            ghost_count = conn.execute(ghost_query).scalar()
+
+            # 2. Stale access summary
+            stale_query = text("""
+                SELECT
+                    COUNT(*) as total_violations,
+                    COUNT(*) FILTER (WHERE urgency = 'critical') as critical,
+                    COUNT(*) FILTER (WHERE urgency = 'overdue') as overdue,
+                    AVG(days_since_termination) as avg_days_stale
+                FROM (
+                    SELECT
+                        CURRENT_DATE - termination_date as days_since_termination,
+                        CASE
+                            WHEN CURRENT_DATE - termination_date > 30 THEN 'critical'
+                            WHEN CURRENT_DATE - termination_date > 7 THEN 'overdue'
+                            ELSE 'within_sla'
+                        END as urgency
+                    FROM hr_unified.v_employee_profile
+                    WHERE hris_status = 'terminated'
+                      AND (payroll_status = 'active' OR benefits_status = 'active')
+                ) violations
+            """)
+            stale_result = conn.execute(stale_query).fetchone()
+
+            # 3. SLA compliance rate
+            sla_query = text("""
+                SELECT
+                    COUNT(*) as total_tasks,
+                    COUNT(*) FILTER (
+                        WHERE completed_date IS NOT NULL
+                          AND completed_date <= sla_due_date
+                    ) as met_sla,
+                    COUNT(*) FILTER (
+                        WHERE completed_date IS NOT NULL
+                          AND completed_date > sla_due_date
+                    ) as breached_sla
+                FROM hr_unified.deprovision_queue
+                WHERE detected_date >= CURRENT_DATE - :days
+            """)
+            sla_result = conn.execute(sla_query, {"days": report_period_days}).fetchone()
+
+            # 4. Sync health check
+            sync_query = text("""
+                SELECT
+                    COUNT(*) as total_records,
+                    COUNT(*) FILTER (WHERE updated_at >= CURRENT_DATE - INTERVAL '1 day') as synced_today,
+                    COUNT(*) FILTER (WHERE updated_at < CURRENT_DATE - INTERVAL '7 days') as stale_sync
+                FROM hr_unified.employee_identity
+            """)
+            sync_result = conn.execute(sync_query).fetchone()
+
+        # Calculate SLA compliance rate
+        total_completed = (sla_result[1] or 0) + (sla_result[2] or 0)
+        sla_compliance_pct = (
+            round((sla_result[1] or 0) / total_completed * 100, 1)
+            if total_completed > 0 else 100.0
+        )
+
+        report_data = {
+            "report_period": f"Last {report_period_days} days",
+            "generated_at": datetime.now().isoformat(),
+            "executive_summary": {
+                "overall_status": "HEALTHY" if ghost_count == 0 and sla_compliance_pct >= 95 else "NEEDS_ATTENTION",
+                "ghost_employees": ghost_count,
+                "stale_access_violations": stale_result[0] or 0,
+                "sla_compliance_pct": sla_compliance_pct,
+            },
+            "detailed_findings": {
+                "ghost_employees": {
+                    "count": ghost_count,
+                    "risk": "HIGH" if ghost_count > 0 else "LOW",
+                    "description": "Employees in payroll system without corresponding HRIS record",
+                },
+                "stale_access": {
+                    "total": stale_result[0] or 0,
+                    "critical": stale_result[1] or 0,
+                    "overdue": stale_result[2] or 0,
+                    "avg_days_outstanding": round(stale_result[3] or 0, 1),
+                },
+                "deprovisioning_sla": {
+                    "total_tasks": sla_result[0] or 0,
+                    "met_sla": sla_result[1] or 0,
+                    "breached_sla": sla_result[2] or 0,
+                    "compliance_pct": sla_compliance_pct,
+                },
+                "sync_health": {
+                    "total_identities": sync_result[0] or 0,
+                    "synced_last_24h": sync_result[1] or 0,
+                    "stale_over_7_days": sync_result[2] or 0,
+                },
+            },
+            "recommendations": self._generate_recommendations(
+                ghost_count, stale_result, sla_compliance_pct
+            ),
+        }
+
+        return {
+            "success": True,
+            "report": report_data,
+        }
+
+    def _generate_recommendations(
+        self,
+        ghost_count: int,
+        stale_result: tuple,
+        sla_compliance_pct: float,
+    ) -> List[str]:
+        """Generate actionable recommendations based on findings."""
+        recommendations = []
+
+        if ghost_count > 0:
+            recommendations.append(
+                f"URGENT: Investigate {ghost_count} potential ghost employees in payroll. "
+                "These represent immediate compliance and financial risk."
+            )
+
+        if (stale_result[1] or 0) > 0:  # Critical stale access
+            recommendations.append(
+                f"CRITICAL: {stale_result[1]} terminated employees have had active "
+                "downstream access for >30 days. Immediate deprovisioning required."
+            )
+
+        if sla_compliance_pct < 95:
+            recommendations.append(
+                f"Process improvement needed: SLA compliance at {sla_compliance_pct}%. "
+                "Review deprovisioning workflow for bottlenecks."
+            )
+
+        if not recommendations:
+            recommendations.append(
+                "All compliance metrics within acceptable ranges. Continue monitoring."
+            )
+
+        return recommendations
+
+
+# Tool registrations
+termination_compliance_tools = [
+    StaleAccessDetectionTool(),
+    DeprovisioningTaskTool(),
+    ComplianceReportTool(),
+]`,
+              },
+            ],
+          },
+          {
+            stepNumber: 4,
+            title: 'Workflow Orchestration',
+            description:
+              'Implement the LangGraph state machine that coordinates the employee data unification pipeline with continuous sync and event-driven termination propagation.',
+            toolsUsed: ['LangGraph', 'Redis', 'LangChain'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'LangGraph Employee Data Unification Workflow',
+                description:
+                  'LangGraph state machine orchestrating continuous employee data sync, identity resolution, and termination propagation with Redis persistence.',
+                code: `"""LangGraph Orchestration for Employee Data Unification Pipeline."""
+import json
+import logging
+import operator
+from datetime import datetime, timedelta
+from typing import Annotated, Any, Dict, List, Literal, Optional, TypedDict
+
+import redis
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import END, StateGraph
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class EmployeeDataState(TypedDict):
+    """State schema for employee data unification workflow."""
+
+    # Workflow metadata
+    run_id: str
+    run_type: Literal["scheduled_sync", "termination_event", "manual"]
+    run_timestamp: str
+    status: Literal["pending", "running", "completed", "failed"]
+
+    # Agent outputs
+    identity_resolution_result: Optional[Dict[str, Any]]
+    sync_result: Optional[Dict[str, Any]]
+    termination_result: Optional[Dict[str, Any]]
+    compliance_result: Optional[Dict[str, Any]]
+    reports_generated: Optional[Dict[str, str]]
+
+    # Error tracking
+    errors: Annotated[List[str], operator.add]
+    warnings: Annotated[List[str], operator.add]
+
+    # Message history
+    messages: Annotated[List[BaseMessage], operator.add]
+
+    # Control flow
+    current_agent: str
+    pending_agents: List[str]
+    requires_escalation: bool
+    escalation_reason: Optional[str]
+
+    # Event triggers (for event-driven runs)
+    trigger_event: Optional[Dict[str, Any]]
+
+
+class EmployeeDataWorkflow:
+    """LangGraph workflow for employee data unification."""
+
+    def __init__(self, redis_url: str = "redis://localhost:6379"):
+        """Initialize the workflow with Redis checkpointing."""
+        self.llm = ChatOpenAI(model="gpt-4-turbo-preview", temperature=0.1)
+        self.redis_client = redis.from_url(redis_url)
+        self.checkpointer = MemorySaver()
+        self.graph = self._build_graph()
+
+    def _build_graph(self) -> StateGraph:
+        """Construct the LangGraph state machine."""
+
+        workflow = StateGraph(EmployeeDataState)
+
+        # Add nodes
+        workflow.add_node("initialize", self._initialize_run)
+        workflow.add_node("identity_resolution", self._run_identity_resolution)
+        workflow.add_node("sync_orchestration", self._run_sync)
+        workflow.add_node("termination_check", self._check_terminations)
+        workflow.add_node("compliance_monitor", self._run_compliance)
+        workflow.add_node("generate_reports", self._generate_reports)
+        workflow.add_node("supervisor_review", self._supervisor_review)
+        workflow.add_node("escalate", self._escalate)
+        workflow.add_node("finalize", self._finalize)
+
+        # Entry point
+        workflow.set_entry_point("initialize")
+
+        # Conditional routing from initialize based on run type
+        workflow.add_conditional_edges(
+            "initialize",
+            self._route_from_initialize,
+            {
+                "full_sync": "identity_resolution",
+                "termination_only": "termination_check",
+                "compliance_only": "compliance_monitor",
+            }
+        )
+
+        # Sequential flow for full sync
+        workflow.add_edge("identity_resolution", "sync_orchestration")
+        workflow.add_edge("sync_orchestration", "termination_check")
+        workflow.add_edge("termination_check", "supervisor_review")
+
+        # Supervisor routing
+        workflow.add_conditional_edges(
+            "supervisor_review",
+            self._route_from_supervisor,
+            {
+                "compliance": "compliance_monitor",
+                "reports": "generate_reports",
+                "escalate": "escalate",
+                "finalize": "finalize",
+            }
+        )
+
+        workflow.add_edge("compliance_monitor", "supervisor_review")
+        workflow.add_edge("generate_reports", "finalize")
+        workflow.add_edge("escalate", "finalize")
+        workflow.add_edge("finalize", END)
+
+        return workflow.compile(checkpointer=self.checkpointer)
+
+    def _initialize_run(self, state: EmployeeDataState) -> Dict[str, Any]:
+        """Initialize a new unification run."""
+        run_id = f"emp-sync-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        run_type = state.get("run_type", "scheduled_sync")
+
+        logger.info(f"Initializing {run_type} run: {run_id}")
+
+        return {
+            "run_id": run_id,
+            "run_timestamp": datetime.now().isoformat(),
+            "status": "running",
+            "current_agent": "initialize",
+            "pending_agents": ["identity_resolution", "sync_orchestration",
+                             "termination_check", "compliance_monitor", "generate_reports"],
+            "errors": [],
+            "warnings": [],
+            "requires_escalation": False,
+            "messages": [
+                SystemMessage(content=f"Starting {run_type} workflow"),
+            ],
+        }
+
+    def _route_from_initialize(self, state: EmployeeDataState) -> str:
+        """Route based on run type."""
+        run_type = state.get("run_type", "scheduled_sync")
+
+        if run_type == "termination_event":
+            return "termination_only"
+        elif run_type == "compliance_check":
+            return "compliance_only"
+        else:
+            return "full_sync"
+
+    def _run_identity_resolution(self, state: EmployeeDataState) -> Dict[str, Any]:
+        """Execute identity resolution agent."""
+        logger.info("Running Identity Resolution Agent")
+
+        try:
+            # Simulated result - in production, calls CrewAI agent
+            result = {
+                "systems_compared": ["hris", "payroll", "lms"],
+                "total_records_processed": 1250,
+                "auto_matched": 1180,
+                "manual_review_needed": 45,
+                "new_master_ids_created": 12,
+                "duplicates_flagged": 3,
+            }
+
+            return {
+                "identity_resolution_result": result,
+                "current_agent": "sync_orchestration",
+                "pending_agents": [a for a in state.get("pending_agents", [])
+                                  if a != "identity_resolution"],
+                "messages": [
+                    HumanMessage(content=f"Identity resolution: {result['auto_matched']} matched, "
+                                        f"{result['manual_review_needed']} need review"),
+                ],
+            }
+
+        except Exception as e:
+            logger.error(f"Identity resolution failed: {e}")
+            return {
+                "errors": [f"Identity resolution failed: {str(e)}"],
+                "warnings": ["Continuing with existing identity mappings"],
+                "current_agent": "sync_orchestration",
+            }
+
+    def _run_sync(self, state: EmployeeDataState) -> Dict[str, Any]:
+        """Execute sync orchestration agent."""
+        logger.info("Running Sync Orchestration Agent")
+
+        try:
+            result = {
+                "systems_synced": ["bamboohr", "adp", "lms", "benefits"],
+                "records_updated": 156,
+                "records_created": 8,
+                "conflicts_resolved": 3,
+                "sync_duration_seconds": 45,
+            }
+
+            return {
+                "sync_result": result,
+                "current_agent": "termination_check",
+                "pending_agents": [a for a in state.get("pending_agents", [])
+                                  if a != "sync_orchestration"],
+                "messages": [
+                    HumanMessage(content=f"Sync complete: {result['records_updated']} updated"),
+                ],
+            }
+
+        except Exception as e:
+            logger.error(f"Sync failed: {e}")
+            return {
+                "errors": [f"Sync failed: {str(e)}"],
+                "requires_escalation": True,
+                "escalation_reason": "Sync failure - data may be stale",
+            }
+
+    def _check_terminations(self, state: EmployeeDataState) -> Dict[str, Any]:
+        """Execute termination propagation agent."""
+        logger.info("Running Termination Propagation Agent")
+
+        try:
+            result = {
+                "terminated_employees_scanned": 23,
+                "stale_access_detected": 5,
+                "critical_violations": 1,
+                "deprovisioning_tasks_created": 5,
+                "notifications_sent": 1,
+            }
+
+            # Check for critical issues
+            if result["critical_violations"] > 0:
+                return {
+                    "termination_result": result,
+                    "current_agent": "supervisor_review",
+                    "requires_escalation": True,
+                    "escalation_reason": f"{result['critical_violations']} critical stale access violations",
+                    "messages": [
+                        HumanMessage(content=f"ALERT: {result['critical_violations']} critical violations found"),
+                    ],
+                }
+
+            return {
+                "termination_result": result,
+                "current_agent": "supervisor_review",
+                "messages": [
+                    HumanMessage(content=f"Termination check: {result['stale_access_detected']} stale access found"),
+                ],
+            }
+
+        except Exception as e:
+            logger.error(f"Termination check failed: {e}")
+            return {
+                "errors": [f"Termination check failed: {str(e)}"],
+                "current_agent": "supervisor_review",
+            }
+
+    def _supervisor_review(self, state: EmployeeDataState) -> Dict[str, Any]:
+        """Supervisor reviews progress and determines next steps."""
+        logger.info("Supervisor reviewing workflow state")
+
+        # Update pending agents
+        completed = []
+        if state.get("identity_resolution_result"):
+            completed.append("identity_resolution")
+        if state.get("sync_result"):
+            completed.append("sync_orchestration")
+        if state.get("termination_result"):
+            completed.append("termination_check")
+        if state.get("compliance_result"):
+            completed.append("compliance_monitor")
+
+        remaining = [a for a in state.get("pending_agents", []) if a not in completed]
+
+        return {
+            "current_agent": "supervisor_review",
+            "pending_agents": remaining,
+        }
+
+    def _route_from_supervisor(self, state: EmployeeDataState) -> str:
+        """Route from supervisor based on state."""
+
+        if state.get("requires_escalation"):
+            return "escalate"
+
+        pending = state.get("pending_agents", [])
+
+        if "compliance_monitor" in pending:
+            return "compliance"
+        elif "generate_reports" in pending:
+            return "reports"
+        else:
+            return "finalize"
+
+    def _run_compliance(self, state: EmployeeDataState) -> Dict[str, Any]:
+        """Execute compliance monitor agent."""
+        logger.info("Running Compliance Monitor Agent")
+
+        try:
+            result = {
+                "ghost_employees": 0,
+                "stale_access_total": 5,
+                "sla_compliance_pct": 94.2,
+                "audit_trail_complete": True,
+                "recommendations": [
+                    "Review 5 stale access cases within 48 hours",
+                ],
+            }
+
+            return {
+                "compliance_result": result,
+                "current_agent": "supervisor_review",
+                "pending_agents": [a for a in state.get("pending_agents", [])
+                                  if a != "compliance_monitor"],
+                "messages": [
+                    HumanMessage(content=f"Compliance check: SLA at {result['sla_compliance_pct']}%"),
+                ],
+            }
+
+        except Exception as e:
+            logger.error(f"Compliance check failed: {e}")
+            return {
+                "errors": [f"Compliance check failed: {str(e)}"],
+                "current_agent": "supervisor_review",
+            }
+
+    def _generate_reports(self, state: EmployeeDataState) -> Dict[str, Any]:
+        """Execute reporting agent."""
+        logger.info("Running Reporting Agent")
+
+        reports = {
+            "executive_summary": f"Employee data sync completed. {state.get('sync_result', {}).get('records_updated', 0)} records updated.",
+            "hr_ops_actions": f"{state.get('termination_result', {}).get('deprovisioning_tasks_created', 0)} deprovisioning tasks pending.",
+            "compliance_scorecard": json.dumps(state.get("compliance_result", {})),
+        }
+
+        return {
+            "reports_generated": reports,
+            "current_agent": "finalize",
+            "pending_agents": [],
+        }
+
+    def _escalate(self, state: EmployeeDataState) -> Dict[str, Any]:
+        """Handle escalation to human operators."""
+        logger.warning(f"Escalating: {state.get('escalation_reason')}")
+
+        # In production, send Slack/email alert
+        return {
+            "status": "escalated",
+            "messages": [
+                HumanMessage(content=f"ESCALATED: {state.get('escalation_reason')}"),
+            ],
+        }
+
+    def _finalize(self, state: EmployeeDataState) -> Dict[str, Any]:
+        """Finalize the workflow run."""
+        logger.info(f"Finalizing run: {state.get('run_id')}")
+
+        # Persist to Redis
+        run_summary = {
+            "run_id": state["run_id"],
+            "run_type": state.get("run_type", "scheduled_sync"),
+            "timestamp": state["run_timestamp"],
+            "status": "completed" if not state.get("errors") else "completed_with_errors",
+            "identity_resolution": state.get("identity_resolution_result"),
+            "sync": state.get("sync_result"),
+            "terminations": state.get("termination_result"),
+            "compliance": state.get("compliance_result"),
+            "reports": state.get("reports_generated"),
+            "errors": state.get("errors", []),
+            "warnings": state.get("warnings", []),
+        }
+
+        self.redis_client.setex(
+            f"emp-sync:{state['run_id']}",
+            86400 * 90,  # 90 day retention for audit
+            json.dumps(run_summary),
+        )
+
+        return {"status": "completed"}
+
+    def run_scheduled_sync(self) -> Dict[str, Any]:
+        """Execute a scheduled full sync."""
+        return self._execute(run_type="scheduled_sync")
+
+    def run_termination_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute termination propagation for a specific event."""
+        return self._execute(run_type="termination_event", trigger_event=event)
+
+    def _execute(self, **kwargs) -> Dict[str, Any]:
+        """Execute the workflow with given parameters."""
+        initial_state: EmployeeDataState = {
+            "run_id": "",
+            "run_type": kwargs.get("run_type", "scheduled_sync"),
+            "run_timestamp": "",
+            "status": "pending",
+            "identity_resolution_result": None,
+            "sync_result": None,
+            "termination_result": None,
+            "compliance_result": None,
+            "reports_generated": None,
+            "errors": [],
+            "warnings": [],
+            "messages": [],
+            "current_agent": "",
+            "pending_agents": [],
+            "requires_escalation": False,
+            "escalation_reason": None,
+            "trigger_event": kwargs.get("trigger_event"),
+        }
+
+        thread_id = f"thread-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
+        return self.graph.invoke(
+            initial_state,
+            {"configurable": {"thread_id": thread_id}},
+        )
+
+
+# Usage
+if __name__ == "__main__":
+    workflow = EmployeeDataWorkflow()
+    result = workflow.run_scheduled_sync()
+    print(f"Workflow completed: {result['status']}")`,
+              },
+            ],
+          },
+          {
+            stepNumber: 5,
+            title: 'Deployment & Observability',
+            description:
+              'Production deployment configuration with Docker, LangSmith tracing, and Prometheus metrics for monitoring the employee data unification pipeline.',
+            toolsUsed: ['Docker', 'LangSmith', 'Prometheus', 'Grafana'],
+            codeSnippets: [
+              {
+                language: 'yaml',
+                title: 'Docker Compose Production Deployment',
+                description:
+                  'Docker Compose configuration for deploying the employee data unification multi-agent system with event-driven sync triggers.',
+                code: `version: '3.8'
+
+services:
+  employee-data-agents:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: employee-data-agents
+    environment:
+      - OPENAI_API_KEY=\${OPENAI_API_KEY}
+      - LANGCHAIN_API_KEY=\${LANGCHAIN_API_KEY}
+      - LANGCHAIN_TRACING_V2=true
+      - LANGCHAIN_PROJECT=employee-data-unification
+      - BAMBOOHR_API_KEY=\${BAMBOOHR_API_KEY}
+      - BAMBOOHR_SUBDOMAIN=\${BAMBOOHR_SUBDOMAIN}
+      - ADP_CLIENT_ID=\${ADP_CLIENT_ID}
+      - ADP_CLIENT_SECRET=\${ADP_CLIENT_SECRET}
+      - LMS_API_ENDPOINT=\${LMS_API_ENDPOINT}
+      - LMS_API_TOKEN=\${LMS_API_TOKEN}
+      - BENEFITS_API_URL=\${BENEFITS_API_URL}
+      - DATABASE_URL=postgresql://\${DB_USER}:\${DB_PASSWORD}@postgres:5432/hr_unified
+      - REDIS_URL=redis://redis:6379
+      - SLACK_BOT_TOKEN=\${SLACK_BOT_TOKEN}
+      - SLACK_WEBHOOK_URL=\${SLACK_WEBHOOK_URL}
+      - LOG_LEVEL=INFO
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    ports:
+      - "8080:8080"  # API for manual triggers
+    restart: unless-stopped
+    networks:
+      - employee-data-net
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Event listener for real-time termination propagation
+  termination-listener:
+    build:
+      context: .
+      dockerfile: Dockerfile.listener
+    container_name: termination-listener
+    environment:
+      - BAMBOOHR_WEBHOOK_SECRET=\${BAMBOOHR_WEBHOOK_SECRET}
+      - REDIS_URL=redis://redis:6379
+      - AGENT_API_URL=http://employee-data-agents:8080
+    ports:
+      - "8081:8081"
+    depends_on:
+      - employee-data-agents
+      - redis
+    networks:
+      - employee-data-net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: employee-data-redis
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+    volumes:
+      - redis-data:/data
+    networks:
+      - employee-data-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: employee-data-postgres
+    environment:
+      - POSTGRES_USER=\${DB_USER}
+      - POSTGRES_PASSWORD=\${DB_PASSWORD}
+      - POSTGRES_DB=hr_unified
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - employee-data-net
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: employee-data-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=90d'
+    ports:
+      - "9090:9090"
+    networks:
+      - employee-data-net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: employee-data-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=\${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - employee-data-net
+    restart: unless-stopped
+
+  # Scheduler for periodic syncs
+  scheduler:
+    image: mcuadros/ofelia:latest
+    container_name: employee-data-scheduler
+    depends_on:
+      - employee-data-agents
+    command: daemon --docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      # Full sync every 6 hours
+      ofelia.job-exec.full-sync.schedule: "0 */6 * * *"
+      ofelia.job-exec.full-sync.command: "python -m employee_data.run_sync --type full"
+      ofelia.job-exec.full-sync.container: "employee-data-agents"
+      # Compliance check daily
+      ofelia.job-exec.compliance.schedule: "0 7 * * *"
+      ofelia.job-exec.compliance.command: "python -m employee_data.run_sync --type compliance"
+      ofelia.job-exec.compliance.container: "employee-data-agents"
+    networks:
+      - employee-data-net
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  employee-data-net:
+    driver: bridge`,
+              },
+              {
+                language: 'python',
+                title: 'Observability & Metrics Instrumentation',
+                description:
+                  'Prometheus metrics and LangSmith tracing for monitoring sync health, identity match rates, and SLA compliance.',
+                code: `"""Observability instrumentation for Employee Data Unification Pipeline."""
+import functools
+import logging
+import time
+from typing import Any, Callable, Dict, Optional
+
+from langsmith import Client, traceable
+from langsmith.run_helpers import get_current_run_tree
+from prometheus_client import Counter, Gauge, Histogram, Info, start_http_server
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# --- Prometheus Metrics ---
+
+# Sync metrics
+SYNC_RUNS_TOTAL = Counter(
+    "employee_sync_runs_total",
+    "Total number of sync runs",
+    ["run_type", "status"],
+)
+
+SYNC_DURATION_SECONDS = Histogram(
+    "employee_sync_duration_seconds",
+    "Sync run duration in seconds",
+    ["run_type"],
+    buckets=[10, 30, 60, 120, 300, 600, 1200],
+)
+
+RECORDS_SYNCED = Counter(
+    "employee_records_synced_total",
+    "Total records synced across systems",
+    ["system", "operation"],  # operation: created, updated, deleted
+)
+
+# Identity resolution metrics
+IDENTITY_MATCH_RATE = Gauge(
+    "employee_identity_match_rate",
+    "Percentage of records auto-matched",
+)
+
+MANUAL_REVIEW_QUEUE = Gauge(
+    "employee_manual_review_queue_size",
+    "Number of records pending manual identity review",
+)
+
+MASTER_IDS_TOTAL = Gauge(
+    "employee_master_ids_total",
+    "Total number of master employee identities",
+)
+
+# Termination propagation metrics
+STALE_ACCESS_VIOLATIONS = Gauge(
+    "employee_stale_access_violations",
+    "Current count of stale access violations",
+    ["urgency"],  # critical, overdue, within_sla
+)
+
+DEPROVISIONING_TASKS = Gauge(
+    "employee_deprovisioning_tasks",
+    "Current deprovisioning task queue size",
+    ["status"],  # open, completed, overdue
+)
+
+SLA_COMPLIANCE_PCT = Gauge(
+    "employee_deprovisioning_sla_compliance_pct",
+    "Percentage of terminations propagated within SLA",
+)
+
+# Compliance metrics
+GHOST_EMPLOYEES = Gauge(
+    "employee_ghost_employees_count",
+    "Number of potential ghost employees detected",
+)
+
+DATA_QUALITY_SCORE = Gauge(
+    "employee_data_quality_score",
+    "Overall data quality score (0-100)",
+)
+
+# System health
+LAST_SUCCESSFUL_SYNC = Gauge(
+    "employee_last_successful_sync_timestamp",
+    "Timestamp of last successful sync",
+)
+
+API_ERRORS = Counter(
+    "employee_api_errors_total",
+    "API errors by system",
+    ["system", "error_type"],
+)
+
+
+# --- Traced Agent Decorator ---
+
+def traced_agent(agent_name: str) -> Callable:
+    """Decorator for tracing agent executions with metrics."""
+
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        @traceable(name=agent_name, run_type="chain")
+        def wrapper(*args, **kwargs) -> Any:
+            start_time = time.time()
+            status = "success"
+
+            try:
+                result = func(*args, **kwargs)
+
+                # Record agent-specific metrics
+                if agent_name == "identity_resolution_agent" and result:
+                    auto_matched = result.get("auto_matched", 0)
+                    total = result.get("total_records_processed", 1)
+                    IDENTITY_MATCH_RATE.set(auto_matched / total * 100 if total else 0)
+                    MANUAL_REVIEW_QUEUE.set(result.get("manual_review_needed", 0))
+                    MASTER_IDS_TOTAL.inc(result.get("new_master_ids_created", 0))
+
+                elif agent_name == "sync_orchestration_agent" and result:
+                    for system in result.get("systems_synced", []):
+                        RECORDS_SYNCED.labels(
+                            system=system, operation="updated"
+                        ).inc(result.get("records_updated", 0) // len(result.get("systems_synced", [1])))
+                    LAST_SUCCESSFUL_SYNC.set(time.time())
+
+                elif agent_name == "termination_propagation_agent" and result:
+                    STALE_ACCESS_VIOLATIONS.labels(urgency="critical").set(
+                        result.get("critical_violations", 0)
+                    )
+                    DEPROVISIONING_TASKS.labels(status="open").set(
+                        result.get("deprovisioning_tasks_created", 0)
+                    )
+
+                elif agent_name == "compliance_monitor_agent" and result:
+                    GHOST_EMPLOYEES.set(result.get("ghost_employees", 0))
+                    SLA_COMPLIANCE_PCT.set(result.get("sla_compliance_pct", 0))
+
+                return result
+
+            except Exception as e:
+                status = "error"
+                logger.error(f"{agent_name} failed: {e}")
+                API_ERRORS.labels(system=agent_name, error_type=type(e).__name__).inc()
+                raise
+
+            finally:
+                duration = time.time() - start_time
+                SYNC_DURATION_SECONDS.labels(run_type=agent_name).observe(duration)
+                logger.info(f"{agent_name} completed in {duration:.2f}s")
+
+        return wrapper
+    return decorator
+
+
+class UnificationObserver:
+    """Observer for the employee data unification pipeline."""
+
+    def __init__(self, prometheus_port: int = 8000):
+        self.prometheus_port = prometheus_port
+        self._started = False
+
+    def start_metrics_server(self) -> None:
+        """Start Prometheus metrics HTTP server."""
+        if not self._started:
+            start_http_server(self.prometheus_port)
+            self._started = True
+            logger.info(f"Prometheus metrics at :{self.prometheus_port}/metrics")
+
+    @traceable(name="employee_data_unification_workflow", run_type="chain")
+    def observe_workflow(
+        self,
+        workflow_func: Callable,
+        run_type: str = "scheduled_sync",
+        *args,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Execute and observe a complete workflow run."""
+
+        start_time = time.time()
+
+        try:
+            result = workflow_func(*args, **kwargs)
+
+            status = result.get("status", "unknown")
+            SYNC_RUNS_TOTAL.labels(run_type=run_type, status=status).inc()
+
+            if status == "completed":
+                LAST_SUCCESSFUL_SYNC.set(time.time())
+
+            # Add metadata to LangSmith trace
+            run_tree = get_current_run_tree()
+            if run_tree:
+                run_tree.metadata = {
+                    "run_id": result.get("run_id"),
+                    "run_type": run_type,
+                    "duration_seconds": time.time() - start_time,
+                    "records_synced": result.get("sync_result", {}).get("records_updated", 0),
+                    "stale_access_found": result.get("termination_result", {}).get("stale_access_detected", 0),
+                }
+
+            return result
+
+        except Exception as e:
+            SYNC_RUNS_TOTAL.labels(run_type=run_type, status="failed").inc()
+            logger.error(f"Workflow failed: {e}")
+            raise
+
+    def calculate_data_quality_score(self) -> float:
+        """Calculate overall data quality score based on current metrics."""
+        # Weighted scoring of quality indicators
+        scores = {
+            "match_rate": IDENTITY_MATCH_RATE._value.get() if hasattr(IDENTITY_MATCH_RATE, '_value') else 95,
+            "sla_compliance": SLA_COMPLIANCE_PCT._value.get() if hasattr(SLA_COMPLIANCE_PCT, '_value') else 95,
+            "no_ghost_employees": 100 if GHOST_EMPLOYEES._value.get() == 0 else 50 if hasattr(GHOST_EMPLOYEES, '_value') else 100,
+        }
+
+        weights = {"match_rate": 0.4, "sla_compliance": 0.4, "no_ghost_employees": 0.2}
+        total_score = sum(scores[k] * weights[k] for k in weights)
+
+        DATA_QUALITY_SCORE.set(total_score)
+        return total_score
+
+
+# Usage
+if __name__ == "__main__":
+    observer = UnificationObserver(prometheus_port=8000)
+    observer.start_metrics_server()
+
+    @traced_agent("sync_orchestration_agent")
+    def test_sync():
+        time.sleep(1)
+        return {"records_updated": 100, "systems_synced": ["hris", "payroll"]}
+
+    result = test_sync()
+    print(f"Sync result: {result}")
+    print(f"Data quality score: {observer.calculate_data_quality_score()}")`,
+              },
+            ],
+          },
+        ],
       },
     },
   ],

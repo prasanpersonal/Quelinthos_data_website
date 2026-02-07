@@ -4,7 +4,7 @@ import { allCategories } from '../data/categories/index.ts';
 import { useScrollLock } from '../hooks/useScrollLock.ts';
 import CategoryCard from './portfolio/CategoryCard.tsx';
 import CategoryOverlay from './portfolio/CategoryOverlay.tsx';
-import PainPointDrawer from './portfolio/PainPointDrawer.tsx';
+import ImplementationMonitor from './portfolio/ImplementationMonitor.tsx';
 import type { Category, PainPoint } from '../data/types.ts';
 
 const Portfolio = () => {
@@ -24,117 +24,86 @@ const Portfolio = () => {
     );
 
     return (
-        <div className="relative min-h-screen w-full flex flex-col overflow-hidden">
-            {/* BACKGROUND: Bellevue Night Cityscape (Abstracted) */}
-            <div className="absolute inset-0 bg-[#0a0510] z-0">
-                {/* City Lights - Animated Particles at bottom */}
-                <div className="absolute bottom-0 w-full h-1/2 overflow-hidden">
-                    {/* Moving horizontally to simulate traffic/city life */}
-                    {[...Array(30)].map((_, i) => (
-                        <motion.div
-                            key={`traffic-${i}`}
-                            className={`absolute h-[2px] rounded-full ${i % 2 === 0 ? 'bg-orange-500 box-shadow-[0_0_10px_orange]' : 'bg-red-500 box-shadow-[0_0_10px_red]'}`}
-                            style={{
-                                width: Math.random() * 100 + 50,
-                                top: Math.random() * 100 + "%",
-                                opacity: Math.random() * 0.7 + 0.3
-                            }}
-                            initial={{ x: -200 }}
-                            animate={{ x: "120vw" }}
-                            transition={{
-                                duration: Math.random() * 10 + 10,
-                                repeat: Infinity,
-                                ease: "linear",
-                                delay: Math.random() * 10
-                            }}
-                        />
-                    ))}
-                    {[...Array(30)].map((_, i) => (
-                        <motion.div
-                            key={`traffic-rev-${i}`}
-                            className="absolute h-[2px] rounded-full bg-white box-shadow-[0_0_10px_white]"
-                            style={{
-                                width: Math.random() * 100 + 50,
-                                top: Math.random() * 100 + "%",
-                                opacity: Math.random() * 0.5 + 0.2
-                            }}
-                            initial={{ x: "120vw" }}
-                            animate={{ x: -200 }}
-                            transition={{
-                                duration: Math.random() * 15 + 15,
-                                repeat: Infinity,
-                                ease: "linear",
-                                delay: Math.random() * 10
-                            }}
-                        />
-                    ))}
-                </div>
-
-                {/* Floor-to-Ceiling Glass Reflections */}
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0a0510]/80 to-[#0a0510]" />
-                <div className="absolute top-0 left-1/4 w-[1px] h-full bg-white/5" />
-                <div className="absolute top-0 left-2/4 w-[1px] h-full bg-white/5" />
-                <div className="absolute top-0 left-3/4 w-[1px] h-full bg-white/5" />
+        <div className="relative min-h-screen w-full flex flex-col overflow-hidden bg-celestial-900">
+            {/* BACKGROUND: Digital Data Streams */}
+            <div className="absolute inset-0 z-0 overflow-hidden">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_var(--bg-900)_100%)] z-10" />
+                {/* Vertical Data Lines */}
+                {[...Array(20)].map((_, i) => (
+                    <motion.div
+                        key={`data-line-${i}`}
+                        className="absolute w-[1px] bg-gradient-to-b from-transparent via-neon-blue/20 to-transparent"
+                        style={{
+                            left: `${5 + i * 5}%`,
+                            top: '-100%',
+                            height: '200%',
+                            opacity: 0.3
+                        }}
+                        animate={{
+                            top: ['-100%', '100%'],
+                        }}
+                        transition={{
+                            duration: 10 + Math.random() * 15,
+                            repeat: Infinity,
+                            ease: "linear",
+                            delay: Math.random() * 5
+                        }}
+                    />
+                ))}
             </div>
 
             <div className="relative z-10 py-24 lg:py-32 px-6 lg:px-16 container mx-auto flex-grow flex flex-col justify-center">
 
-                {/* Glass Desk Interface */}
-                <div className="relative backdrop-blur-sm bg-white/5 border border-white/10 rounded-3xl p-8 lg:p-12 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden">
-                    {/* Table Surface Reflection */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+                {/* HUD Interface Container */}
+                <div className="relative backdrop-blur-xl bg-celestial-900/40 border border-white/10 rounded-3xl p-8 lg:p-12 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden ring-1 ring-white/5">
+                    {/* Corner Accents */}
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-neon-blue/50 rounded-tl-xl" />
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-neon-blue/50 rounded-tr-xl" />
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-neon-blue/50 rounded-bl-xl" />
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-neon-blue/50 rounded-br-xl" />
 
                     {/* Header */}
-                    <div ref={headerRef} className="relative z-20 mb-12 text-center">
+                    <div ref={headerRef} className="relative z-20 mb-16 flex flex-col items-center">
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={isHeaderInView ? { opacity: 1, scale: 1 } : {}}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={isHeaderInView ? { opacity: 1, y: 0 } : {}}
                             transition={{ duration: 0.8 }}
+                            className="text-center"
                         >
-                            <h2 className="text-4xl md:text-6xl font-bold mb-4 tracking-tight text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
-                                THE INSIGHT SUITE
+                            <h2 className="text-5xl md:text-7xl font-bold mb-4 tracking-tighter text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                                INSIGHT <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-blue to-neon-purple">SUITE</span>
                             </h2>
-                            <p className="text-neon-blue font-mono text-sm tracking-[0.2em] uppercase">
-                                {allCategories.length} Sector Modules Loaded // {totalPainPoints} Pain Points Identified
-                            </p>
+                            <div className="flex items-center justify-center gap-4 text-neon-blue font-mono text-xs tracking-[0.2em] uppercase opacity-80">
+                                <span>Status: Active</span>
+                                <span className="w-1 h-1 bg-neon-blue rounded-full" />
+                                <span>{allCategories.length} Modules Online</span>
+                                <span className="w-1 h-1 bg-neon-blue rounded-full" />
+                                <span>{totalPainPoints} Data Points</span>
+                            </div>
                         </motion.div>
                         <motion.div
-                            initial={{ width: 0 }}
-                            animate={isHeaderInView ? { width: "100px" } : {}}
-                            className="h-1 bg-neon-gold mx-auto mt-6 rounded-full shadow-[0_0_10px_rgba(255,215,0,0.5)]"
+                            initial={{ scaleX: 0 }}
+                            animate={isHeaderInView ? { scaleX: 1 } : {}}
+                            transition={{ duration: 1, delay: 0.2, ease: "circOut" }}
+                            className="w-24 h-1 bg-gradient-to-r from-transparent via-neon-blue to-transparent mt-8"
                         />
                     </div>
 
-                    {/* Category Grid - Holographic Cards */}
+                    {/* Category Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-20">
                         {allCategories.map((category, index) => (
-                            <div key={category.id} className="perspective-1000 group">
-                                <motion.div
-                                    initial={{ opacity: 0, rotateX: 20 }}
-                                    whileInView={{ opacity: 1, rotateX: 0 }}
-                                    viewport={{ once: true }}
-                                    transition={{ delay: index * 0.1, duration: 0.5 }}
-                                    className="h-full"
-                                >
-                                    <CategoryCard
-                                        category={category}
-                                        index={index}
-                                        onClick={() => setSelectedCategory(category)}
-                                    // Pass a custom prop for styling if needed, or rely on existing styles
-                                    />
-                                </motion.div>
-                                {/* Hologram Base */}
-                                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-3/4 h-2 bg-neon-blue/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            </div>
+                            <CategoryCard
+                                key={category.id}
+                                category={category}
+                                index={index}
+                                onClick={() => setSelectedCategory(category)}
+                            />
                         ))}
                     </div>
                 </div>
-
-                {/* Ambient Table Glow */}
-                <div className="absolute bottom-0 left-0 w-full h-[500px] bg-gradient-to-t from-neon-blue/5 to-transparent pointer-events-none" />
             </div>
 
-            {/* Overlay System - Unchanged Logic, just visual context */}
+            {/* Overlay System */}
             <AnimatePresence>
                 {selectedCategory && (
                     <CategoryOverlay
@@ -149,10 +118,9 @@ const Portfolio = () => {
             </AnimatePresence>
 
             <AnimatePresence>
-                {selectedPainPoint && selectedCategory && (
-                    <PainPointDrawer
+                {selectedPainPoint && (
+                    <ImplementationMonitor
                         painPoint={selectedPainPoint}
-                        category={selectedCategory}
                         onClose={() => setSelectedPainPoint(null)}
                     />
                 )}

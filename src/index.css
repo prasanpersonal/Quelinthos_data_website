@@ -4,32 +4,56 @@ html {
   scroll-behavior: smooth;
 }
 
+:root {
+  /* Midnight Executive - Deepest Navy & Sophisticated */
+  --bg-900: #01030d;
+  /* Ultra Deep Navy/Black */
+  --bg-800: #020617;
+  /* Slate 950 */
+
+  /* UI Accents */
+  --accent-primary: #38BDF8;
+  /* Sky Blue */
+  --accent-secondary: #6366f1;
+  /* Indigo */
+  --accent-highlight: #E2E8F0;
+  /* Silver */
+
+  /* Chart Specific Palette - Sophisticated Data */
+  --chart-1: #2dd4bf;
+  /* Electric Teal - Unique & Bioluminescent */
+  --chart-2: #fb7185;
+  /* Neon Rose - Warm contrast against navy */
+  --chart-3: #10b981;
+  /* Emerald (Success) */
+  --chart-line: #fbbf24;
+  /* Amber (Trend) */
+
+  --font-heading: "Outfit", sans-serif;
+  --font-ui: "JetBrains Mono", monospace;
+
+  --gradient-overlay-start: #0f172a;
+  --gradient-overlay-mid: #01030d;
+}
+
 @theme {
-  --color-celestial-900: #020205;
-  /* Deep Space Black */
-  --color-celestial-800: #0a0a14;
-  /* Void Indigo */
-  --color-celestial-500: #8b5cf6;
-  /* Cosmic Violet */
+  --color-celestial-900: var(--bg-900);
+  --color-celestial-800: var(--bg-800);
+  --color-celestial-500: var(--accent-secondary);
   --color-celestial-400: #c4b5fd;
-  /* Nebula Mist */
-  --color-celestial-300: #f8fafc;
-  /* Pure Starlight */
+  /* Keep specific */
 
-  /* Unique Future Accents */
-  --color-neon-blue: #00f3ff;
-  /* CYBER CYAN */
-  --color-neon-purple: #a855f7;
-  /* ELECTRIC PURPLE */
-  --color-neon-gold: #fbbf24;
-  /* STELLAR GOLD */
+  --color-neon-blue: var(--accent-primary);
+  --color-neon-purple: var(--accent-secondary);
+  --color-neon-gold: var(--accent-highlight);
+  --color-neon-green: #22c55e;
 
-  --font-sans: "Inter", system-ui, sans-serif;
-  --image-prediction-machine: url('/hero-bg-daylight-pure.png');
-  --image-sme-office: url('/sme-office-v2.png');
+  --font-sans: var(--font-heading);
+  --font-mono: var(--font-ui);
 
   --animate-float: float 8s ease-in-out infinite;
   --animate-pulse-glow: pulse-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   --animate-celestial-spin: celestial-spin 20s linear infinite;
 
   @keyframes float {

@@ -42,7 +42,7 @@ const PainPointCard = ({ painPoint, index, accentColor, onDiveDeeper }: PainPoin
           e.stopPropagation();
           onDiveDeeper();
         }}
-        className={`mt-6 w-full py-3 rounded-xl text-xs font-bold tracking-widest uppercase border border-white/10 transition-all duration-300 ${styles.hoverBg}`}
+        className={`relative z-20 mt-6 w-full py-4 rounded-xl text-xs font-bold tracking-[0.2em] uppercase border border-white/10 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${styles.hoverBg} shadow-lg`}
       >
         Dive Deeper &rarr;
       </button>

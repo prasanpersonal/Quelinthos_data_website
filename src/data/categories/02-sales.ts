@@ -906,6 +906,1354 @@ if __name__ == "__main__":
           },
         ],
       },
+      aiEasyWin: {
+        overview:
+          'Use ChatGPT/Claude with Zapier to automatically analyze CRM data exports, identify stale deals and data quality issues, and send enrichment suggestions without writing custom code.',
+        estimatedMonthlyCost: '$100 - $180/month',
+        primaryTools: ['ChatGPT Plus ($20/mo)', 'Zapier Pro ($29.99/mo)', 'Clay ($149/mo for enrichment)'],
+        alternativeTools: ['Claude Pro ($20/mo)', 'Make ($10.59/mo)', 'Apollo AI ($49/mo)'],
+        steps: [
+          {
+            stepNumber: 1,
+            title: 'Data Extraction & Preparation',
+            description:
+              'Set up automated CRM data exports via Zapier that extract pipeline opportunities with key fields for AI analysis. Configure scheduled triggers to pull fresh data daily.',
+            toolsUsed: ['Zapier', 'CRM (Salesforce/HubSpot)', 'Google Sheets'],
+            codeSnippets: [
+              {
+                language: 'json',
+                title: 'Zapier CRM Export Trigger Configuration',
+                description:
+                  'Configures a Zapier trigger to export open opportunities with staleness indicators to Google Sheets for AI analysis.',
+                code: `{
+  "trigger": {
+    "app": "salesforce",
+    "event": "find_records_search",
+    "config": {
+      "object": "Opportunity",
+      "search_criteria": {
+        "StageName": { "not_equals": "Closed Won" },
+        "StageName": { "not_equals": "Closed Lost" },
+        "IsClosed": false
+      },
+      "fields": [
+        "Id", "Name", "StageName", "Amount", "CloseDate",
+        "LastModifiedDate", "OwnerId", "Owner.Name",
+        "LeadSource", "NextStep", "Description"
+      ],
+      "schedule": {
+        "type": "daily",
+        "time": "06:00",
+        "timezone": "America/New_York"
+      }
+    }
+  },
+  "actions": [
+    {
+      "app": "google_sheets",
+      "event": "create_spreadsheet_row",
+      "config": {
+        "spreadsheet_id": "{{env.PIPELINE_SHEET_ID}}",
+        "worksheet": "Raw_Pipeline_Data",
+        "row_data": {
+          "Opportunity_ID": "{{trigger.Id}}",
+          "Deal_Name": "{{trigger.Name}}",
+          "Stage": "{{trigger.StageName}}",
+          "Amount": "{{trigger.Amount}}",
+          "Close_Date": "{{trigger.CloseDate}}",
+          "Last_Modified": "{{trigger.LastModifiedDate}}",
+          "Owner": "{{trigger.Owner.Name}}",
+          "Lead_Source": "{{trigger.LeadSource}}",
+          "Next_Step": "{{trigger.NextStep}}",
+          "Days_Since_Update": "={{DATEDIF(trigger.LastModifiedDate, TODAY(), \\"D\\")}}"
+        }
+      }
+    }
+  ]
+}`,
+              },
+            ],
+          },
+          {
+            stepNumber: 2,
+            title: 'AI-Powered Analysis',
+            description:
+              'Use ChatGPT or Claude to analyze the exported pipeline data, identify stale deals, missing fields, and data quality issues. Generate prioritized action items for each sales rep.',
+            toolsUsed: ['ChatGPT Plus', 'Claude Pro', 'Zapier AI Actions'],
+            codeSnippets: [
+              {
+                language: 'yaml',
+                title: 'Pipeline Health Analysis Prompt Template',
+                description:
+                  'Structured prompt for AI to analyze CRM data quality and generate actionable insights for sales managers.',
+                code: `system_prompt: |
+  You are a Sales Operations AI analyst specializing in CRM data quality
+  and pipeline health assessment. Analyze the provided pipeline data and
+  identify issues that require immediate attention.
+
+user_prompt_template: |
+  ## Pipeline Data Quality Analysis Request
+
+  **Analysis Date:** {{current_date}}
+  **Sales Team:** {{team_name}}
+
+  ### Pipeline Data (CSV format):
+  \`\`\`csv
+  {{pipeline_data_csv}}
+  \`\`\`
+
+  ### Analysis Instructions:
+
+  1. **Staleness Detection:**
+     - Flag deals not updated in 14+ days as "Warning"
+     - Flag deals not updated in 30+ days as "Critical"
+     - Consider stage context (Negotiation stage should update weekly)
+
+  2. **Data Completeness Check:**
+     - Identify deals missing: Amount, Close Date, Next Step, Lead Source
+     - Calculate completeness score per deal (0-100%)
+
+  3. **Anomaly Detection:**
+     - Close dates in the past but deal still open
+     - Deals stuck in same stage for 60+ days
+     - Unusually high or low amounts for the stage
+
+  4. **Owner Analysis:**
+     - Summarize data quality score per rep
+     - Identify reps with highest % of stale deals
+
+  ### Required Output Format:
+
+  \`\`\`json
+  {
+    "summary": {
+      "total_deals_analyzed": <number>,
+      "critical_issues": <number>,
+      "warning_issues": <number>,
+      "overall_health_score": "<A/B/C/D/F>",
+      "total_pipeline_at_risk": "<dollar amount>"
+    },
+    "critical_deals": [
+      {
+        "deal_name": "<name>",
+        "owner": "<rep name>",
+        "issue": "<description>",
+        "days_stale": <number>,
+        "amount": "<dollar amount>",
+        "recommended_action": "<specific action>"
+      }
+    ],
+    "rep_scorecards": [
+      {
+        "rep_name": "<name>",
+        "total_deals": <number>,
+        "health_score": "<A-F>",
+        "stale_deals": <number>,
+        "missing_fields_count": <number>,
+        "priority_actions": ["<action 1>", "<action 2>"]
+      }
+    ],
+    "enrichment_suggestions": [
+      {
+        "deal_name": "<name>",
+        "missing_data": ["<field1>", "<field2>"],
+        "suggested_sources": ["Clay", "Apollo", "LinkedIn"]
+      }
+    ]
+  }
+  \`\`\`
+
+output_instructions: |
+  - Be specific with deal names and owner names
+  - Prioritize by revenue impact (Amount * probability of loss)
+  - Include actionable next steps, not just observations
+  - Keep recommended actions to 1-2 sentences each`,
+              },
+            ],
+          },
+          {
+            stepNumber: 3,
+            title: 'Automation & Delivery',
+            description:
+              'Configure Zapier to automatically run the AI analysis, parse results, and distribute personalized reports to sales reps and managers via Slack or email.',
+            toolsUsed: ['Zapier', 'Slack', 'Gmail', 'Clay'],
+            codeSnippets: [
+              {
+                language: 'json',
+                title: 'Zapier AI Analysis and Distribution Workflow',
+                description:
+                  'Complete Zapier workflow that triggers AI analysis, parses results, and sends personalized alerts to sales team members.',
+                code: `{
+  "workflow_name": "Daily Pipeline Health AI Analysis",
+  "trigger": {
+    "type": "schedule",
+    "config": {
+      "frequency": "daily",
+      "time": "07:00",
+      "timezone": "America/New_York"
+    }
+  },
+  "steps": [
+    {
+      "step_number": 1,
+      "app": "google_sheets",
+      "action": "get_all_rows",
+      "config": {
+        "spreadsheet_id": "{{env.PIPELINE_SHEET_ID}}",
+        "worksheet": "Raw_Pipeline_Data",
+        "output_format": "csv"
+      }
+    },
+    {
+      "step_number": 2,
+      "app": "chatgpt",
+      "action": "conversation",
+      "config": {
+        "model": "gpt-4",
+        "system_message": "{{prompts.pipeline_analysis.system}}",
+        "user_message": "{{prompts.pipeline_analysis.user | replace('{{pipeline_data_csv}}', step1.csv_data)}}",
+        "max_tokens": 4000,
+        "temperature": 0.3
+      }
+    },
+    {
+      "step_number": 3,
+      "app": "code",
+      "action": "run_javascript",
+      "config": {
+        "code": "const result = JSON.parse(inputData.ai_response); return { summary: result.summary, critical_deals: result.critical_deals, rep_scorecards: result.rep_scorecards };"
+      }
+    },
+    {
+      "step_number": 4,
+      "app": "slack",
+      "action": "send_channel_message",
+      "config": {
+        "channel": "#sales-ops-alerts",
+        "message_blocks": [
+          {
+            "type": "header",
+            "text": ":chart_with_upwards_trend: Daily Pipeline Health Report"
+          },
+          {
+            "type": "section",
+            "text": "*Overall Health: {{step3.summary.overall_health_score}}*\\n:warning: {{step3.summary.critical_issues}} critical issues | :eyes: {{step3.summary.warning_issues}} warnings\\n:moneybag: Pipeline at risk: {{step3.summary.total_pipeline_at_risk}}"
+          },
+          {
+            "type": "divider"
+          },
+          {
+            "type": "section",
+            "text": "*Critical Deals Requiring Immediate Action:*\\n{{#each step3.critical_deals}}• *{{deal_name}}* ({{owner}}): {{issue}} - {{recommended_action}}\\n{{/each}}"
+          }
+        ]
+      }
+    },
+    {
+      "step_number": 5,
+      "app": "loop",
+      "action": "for_each",
+      "config": {
+        "items": "{{step3.rep_scorecards}}",
+        "sub_steps": [
+          {
+            "app": "slack",
+            "action": "send_direct_message",
+            "config": {
+              "user_email": "{{loop.item.rep_email}}",
+              "message": ":wave: Hi {{loop.item.rep_name}}, your daily pipeline health score is *{{loop.item.health_score}}*.\\n\\n*Priority Actions:*\\n{{#each loop.item.priority_actions}}• {{this}}\\n{{/each}}\\n\\nYou have {{loop.item.stale_deals}} stale deals that need updates today."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "step_number": 6,
+      "app": "clay",
+      "action": "enrich_records",
+      "condition": "{{step3.enrichment_suggestions.length > 0}}",
+      "config": {
+        "table_id": "{{env.CLAY_ENRICHMENT_TABLE}}",
+        "records": "{{step3.enrichment_suggestions}}",
+        "enrichment_sources": ["linkedin", "apollo", "clearbit"]
+      }
+    }
+  ]
+}`,
+              },
+            ],
+          },
+        ],
+      },
+      aiAdvanced: {
+        overview:
+          'Deploy a multi-agent system where specialized AI agents continuously monitor CRM data quality, auto-enrich stale records, detect anomalies, and proactively alert sales managers with prescriptive actions.',
+        estimatedMonthlyCost: '$600 - $1,200/month',
+        architecture:
+          'A Supervisor agent orchestrates four specialist agents: DataAuditor scans for quality issues, EnrichmentAgent fills gaps using external APIs, AnomalyDetector identifies unusual patterns, and AlertDispatcher routes actionable insights to the right stakeholders.',
+        agents: [
+          {
+            name: 'CRMDataAuditorAgent',
+            role: 'Data Quality Auditor',
+            goal: 'Continuously scan CRM records for staleness, missing fields, duplicates, and data inconsistencies.',
+            tools: ['CRM API', 'SQL Database', 'Pandas'],
+          },
+          {
+            name: 'DataEnrichmentAgent',
+            role: 'Record Enrichment Specialist',
+            goal: 'Automatically enrich incomplete records using external data sources like Clay, Apollo, and LinkedIn.',
+            tools: ['Clay API', 'Apollo API', 'LinkedIn Sales Navigator', 'Clearbit'],
+          },
+          {
+            name: 'AnomalyDetectorAgent',
+            role: 'Pipeline Anomaly Detector',
+            goal: 'Identify unusual patterns like stuck deals, outlier amounts, and suspicious stage progressions.',
+            tools: ['Scikit-learn', 'Pandas', 'Statistical Models'],
+          },
+          {
+            name: 'AlertDispatcherAgent',
+            role: 'Notification Router',
+            goal: 'Route prioritized alerts to the right people via Slack, email, or CRM tasks based on severity and ownership.',
+            tools: ['Slack API', 'Email Service', 'CRM Task API'],
+          },
+        ],
+        orchestration: {
+          framework: 'LangGraph',
+          pattern: 'Supervisor',
+          stateManagement: 'Redis-backed state with hourly checkpointing and 30-day audit trail',
+        },
+        steps: [
+          {
+            stepNumber: 1,
+            title: 'Agent Architecture & Role Design',
+            description:
+              'Define the multi-agent system with CrewAI, establishing clear roles, goals, and tool access for each specialist agent in the pipeline health monitoring crew.',
+            toolsUsed: ['CrewAI', 'LangChain', 'Python'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'Pipeline Health Agent Crew Definition',
+                description:
+                  'CrewAI configuration defining the four specialist agents with their roles, goals, backstories, and tool assignments.',
+                code: `"""
+Pipeline Health Multi-Agent System
+CrewAI-based agent definitions for CRM data quality monitoring.
+"""
+
+from crewai import Agent, Crew, Task, Process
+from langchain_openai import ChatOpenAI
+from typing import List, Dict, Any
+import os
+
+# Initialize LLM with appropriate model
+llm = ChatOpenAI(
+    model="gpt-4-turbo-preview",
+    temperature=0.1,
+    api_key=os.getenv("OPENAI_API_KEY"),
+)
+
+
+class PipelineHealthAgents:
+    """Factory class for creating pipeline health monitoring agents."""
+
+    @staticmethod
+    def create_data_auditor_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="CRM Data Quality Auditor",
+            goal="""Systematically audit CRM pipeline data to identify:
+                1. Stale opportunities (no updates in 14+ days)
+                2. Missing required fields (Amount, Close Date, Next Step)
+                3. Duplicate contacts and opportunities
+                4. Data inconsistencies (past close dates, invalid stages)""",
+            backstory="""You are a meticulous data quality specialist with 10 years
+                of experience in sales operations. You've seen how bad data destroys
+                forecasts and wastes rep time. You catch issues others miss and
+                quantify the revenue impact of every data problem you find.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=15,
+        )
+
+    @staticmethod
+    def create_enrichment_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="Data Enrichment Specialist",
+            goal="""Automatically enrich incomplete CRM records by:
+                1. Finding missing contact information via Apollo/Clay
+                2. Updating company firmographic data
+                3. Identifying decision-makers for accounts lacking them
+                4. Validating and correcting outdated information""",
+            backstory="""You are a research expert who can find information on any
+                company or contact. You know which enrichment sources are most
+                reliable for different data types and always verify before updating.
+                You prioritize high-value opportunities for enrichment.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=20,
+        )
+
+    @staticmethod
+    def create_anomaly_detector_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="Pipeline Anomaly Detector",
+            goal="""Detect unusual patterns in pipeline data including:
+                1. Deals stuck in same stage beyond normal duration
+                2. Unusual amount values for deal stage or segment
+                3. Sudden changes in close dates or deal values
+                4. Reps with abnormal win/loss patterns""",
+            backstory="""You are a data scientist specializing in anomaly detection.
+                You've built models that caught millions in revenue leakage from
+                phantom deals and gaming behaviors. You balance statistical rigor
+                with business context to avoid false positives.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=10,
+        )
+
+    @staticmethod
+    def create_alert_dispatcher_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="Alert Routing Specialist",
+            goal="""Route pipeline health alerts to the right stakeholders:
+                1. Critical issues to sales managers immediately via Slack
+                2. Rep-specific issues as personalized daily digests
+                3. Enrichment completions back to opportunity owners
+                4. Weekly summaries to sales leadership""",
+            backstory="""You are a communications expert who knows that the right
+                message to the wrong person is noise. You craft concise, actionable
+                alerts that drive behavior change. You never cry wolf and always
+                include the 'so what' and 'now what'.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=10,
+        )
+
+
+def create_pipeline_health_crew(
+    auditor_tools: List[Any],
+    enrichment_tools: List[Any],
+    anomaly_tools: List[Any],
+    alert_tools: List[Any],
+) -> Crew:
+    """Create the full pipeline health monitoring crew."""
+    agents_factory = PipelineHealthAgents()
+
+    data_auditor = agents_factory.create_data_auditor_agent(auditor_tools)
+    enrichment_agent = agents_factory.create_enrichment_agent(enrichment_tools)
+    anomaly_detector = agents_factory.create_anomaly_detector_agent(anomaly_tools)
+    alert_dispatcher = agents_factory.create_alert_dispatcher_agent(alert_tools)
+
+    return Crew(
+        agents=[data_auditor, enrichment_agent, anomaly_detector, alert_dispatcher],
+        process=Process.sequential,
+        verbose=True,
+        memory=True,
+        cache=True,
+        max_rpm=30,
+    )`,
+              },
+            ],
+          },
+          {
+            stepNumber: 2,
+            title: 'Data Ingestion Agent(s)',
+            description:
+              'Implement the CRM Data Auditor agent with tools to connect to Salesforce/HubSpot APIs, query for pipeline data, and calculate health metrics for each opportunity.',
+            toolsUsed: ['LangChain Tools', 'Salesforce API', 'HubSpot API', 'Pandas'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'CRM Data Auditor Agent Tools',
+                description:
+                  'LangChain tool implementations for the Data Auditor agent to query CRM data and assess pipeline health.',
+                code: `"""
+CRM Data Auditor Agent — Tool Implementations
+Tools for querying CRM data and calculating health metrics.
+"""
+
+from langchain.tools import BaseTool
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta
+import pandas as pd
+import httpx
+import os
+
+
+class CRMQueryInput(BaseModel):
+    query_type: str = Field(
+        description="Type of query: 'stale_deals', 'missing_fields', 'duplicates', 'all_open'"
+    )
+    days_threshold: int = Field(
+        default=14,
+        description="Number of days to consider a deal stale",
+    )
+    owner_filter: Optional[str] = Field(
+        default=None,
+        description="Filter by opportunity owner email",
+    )
+
+
+class CRMQueryTool(BaseTool):
+    name: str = "crm_query"
+    description: str = """Query CRM for pipeline opportunities with health indicators.
+        Use query_type='stale_deals' to find opportunities not updated recently.
+        Use query_type='missing_fields' to find opportunities with incomplete data.
+        Use query_type='duplicates' to find potential duplicate records.
+        Use query_type='all_open' to get all open opportunities."""
+    args_schema: type[BaseModel] = CRMQueryInput
+
+    def _run(
+        self,
+        query_type: str,
+        days_threshold: int = 14,
+        owner_filter: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        crm_api_key = os.getenv("CRM_API_KEY")
+        crm_api_url = os.getenv("CRM_API_URL", "https://api.salesforce.com")
+
+        # Build query based on type
+        base_query = {
+            "object": "Opportunity",
+            "fields": [
+                "Id", "Name", "StageName", "Amount", "CloseDate",
+                "LastModifiedDate", "OwnerId", "Owner.Name", "Owner.Email",
+                "LeadSource", "NextStep", "AccountId", "Account.Name",
+                "CreatedDate", "Probability",
+            ],
+            "filters": {"IsClosed": False},
+        }
+
+        if owner_filter:
+            base_query["filters"]["Owner.Email"] = owner_filter
+
+        with httpx.Client(timeout=60) as client:
+            response = client.post(
+                f"{crm_api_url}/services/data/v58.0/query",
+                headers={"Authorization": f"Bearer {crm_api_key}"},
+                json=base_query,
+            )
+            response.raise_for_status()
+            raw_data = response.json()["records"]
+
+        df = pd.DataFrame(raw_data)
+        df["LastModifiedDate"] = pd.to_datetime(df["LastModifiedDate"])
+        df["DaysSinceUpdate"] = (
+            datetime.utcnow() - df["LastModifiedDate"]
+        ).dt.days
+
+        if query_type == "stale_deals":
+            stale = df[df["DaysSinceUpdate"] >= days_threshold]
+            return {
+                "query_type": "stale_deals",
+                "threshold_days": days_threshold,
+                "total_found": len(stale),
+                "total_value_at_risk": float(stale["Amount"].sum()),
+                "deals": stale[[
+                    "Id", "Name", "StageName", "Amount", "DaysSinceUpdate",
+                    "Owner.Name", "Account.Name",
+                ]].to_dict(orient="records"),
+            }
+
+        elif query_type == "missing_fields":
+            required_fields = ["Amount", "CloseDate", "NextStep", "LeadSource"]
+            missing_mask = df[required_fields].isna().any(axis=1)
+            incomplete = df[missing_mask].copy()
+            incomplete["MissingFields"] = df[required_fields].isna().apply(
+                lambda row: [f for f in required_fields if row[f]], axis=1
+            )
+            return {
+                "query_type": "missing_fields",
+                "total_found": len(incomplete),
+                "deals": incomplete[[
+                    "Id", "Name", "StageName", "Amount", "Owner.Name", "MissingFields",
+                ]].to_dict(orient="records"),
+            }
+
+        elif query_type == "duplicates":
+            # Simple duplicate detection by account + similar name
+            df["NameNormalized"] = df["Name"].str.lower().str.strip()
+            duplicates = df[df.duplicated(
+                subset=["AccountId", "NameNormalized"], keep=False
+            )]
+            return {
+                "query_type": "duplicates",
+                "total_found": len(duplicates),
+                "duplicate_groups": duplicates.groupby(
+                    ["AccountId", "NameNormalized"]
+                ).apply(lambda g: g[["Id", "Name", "Amount"]].to_dict(orient="records"))
+                .to_dict(),
+            }
+
+        else:  # all_open
+            df["HealthScore"] = self._calculate_health_score(df)
+            return {
+                "query_type": "all_open",
+                "total_deals": len(df),
+                "total_pipeline_value": float(df["Amount"].sum()),
+                "avg_health_score": float(df["HealthScore"].mean()),
+                "deals": df[[
+                    "Id", "Name", "StageName", "Amount", "DaysSinceUpdate",
+                    "HealthScore", "Owner.Name",
+                ]].to_dict(orient="records"),
+            }
+
+    def _calculate_health_score(self, df: pd.DataFrame) -> pd.Series:
+        """Calculate a 0-100 health score for each opportunity."""
+        scores = pd.Series(100.0, index=df.index)
+
+        # Staleness penalty
+        scores -= df["DaysSinceUpdate"].clip(0, 60) * 1.5
+
+        # Missing fields penalty
+        required = ["Amount", "CloseDate", "NextStep", "LeadSource"]
+        missing_count = df[required].isna().sum(axis=1)
+        scores -= missing_count * 10
+
+        # Past close date penalty
+        df["CloseDate"] = pd.to_datetime(df["CloseDate"])
+        past_due = df["CloseDate"] < datetime.utcnow()
+        scores[past_due] -= 25
+
+        return scores.clip(0, 100)`,
+              },
+            ],
+          },
+          {
+            stepNumber: 3,
+            title: 'Analysis & Decision Agent(s)',
+            description:
+              'Implement the Anomaly Detector and Enrichment agents that analyze pipeline patterns, identify outliers, and automatically enrich records using external data sources.',
+            toolsUsed: ['LangChain Tools', 'Clay API', 'Apollo API', 'Scikit-learn'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'Anomaly Detection and Enrichment Agent Tools',
+                description:
+                  'Tool implementations for detecting pipeline anomalies and enriching incomplete CRM records.',
+                code: `"""
+Pipeline Analysis Agents — Anomaly Detection & Data Enrichment Tools
+"""
+
+from langchain.tools import BaseTool
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta
+import numpy as np
+import pandas as pd
+import httpx
+import os
+
+
+class AnomalyDetectionInput(BaseModel):
+    pipeline_data: List[Dict[str, Any]] = Field(
+        description="List of opportunity records to analyze for anomalies"
+    )
+    sensitivity: str = Field(
+        default="medium",
+        description="Anomaly sensitivity: 'low', 'medium', 'high'",
+    )
+
+
+class PipelineAnomalyDetectorTool(BaseTool):
+    name: str = "detect_pipeline_anomalies"
+    description: str = """Analyze pipeline data for anomalies including:
+        - Deals stuck in stage beyond normal duration
+        - Unusual deal amounts for the stage
+        - Abnormal win/loss patterns by rep
+        - Sudden changes in deal values or dates"""
+    args_schema: type[BaseModel] = AnomalyDetectionInput
+
+    def _run(
+        self,
+        pipeline_data: List[Dict[str, Any]],
+        sensitivity: str = "medium",
+    ) -> Dict[str, Any]:
+        df = pd.DataFrame(pipeline_data)
+        df["LastModifiedDate"] = pd.to_datetime(df["LastModifiedDate"])
+        df["CreatedDate"] = pd.to_datetime(df["CreatedDate"])
+        df["DaysInStage"] = (datetime.utcnow() - df["LastModifiedDate"]).dt.days
+
+        threshold_multiplier = {"low": 2.5, "medium": 2.0, "high": 1.5}[sensitivity]
+        anomalies = []
+
+        # 1. Stuck deals: days in stage > stage-specific threshold
+        stage_thresholds = {
+            "Qualification": 14, "Discovery": 21, "Proposal": 14,
+            "Negotiation": 7, "Closed Won": 0, "Closed Lost": 0,
+        }
+        for stage, threshold in stage_thresholds.items():
+            stuck = df[
+                (df["StageName"] == stage) &
+                (df["DaysInStage"] > threshold * threshold_multiplier)
+            ]
+            for _, row in stuck.iterrows():
+                anomalies.append({
+                    "type": "stuck_deal",
+                    "severity": "high" if row["DaysInStage"] > threshold * 3 else "medium",
+                    "opportunity_id": row["Id"],
+                    "deal_name": row["Name"],
+                    "owner": row.get("Owner.Name", "Unknown"),
+                    "details": f"Stuck in {stage} for {row['DaysInStage']} days (threshold: {threshold})",
+                    "amount_at_risk": float(row.get("Amount", 0) or 0),
+                })
+
+        # 2. Amount outliers by stage using IQR method
+        for stage in df["StageName"].unique():
+            stage_df = df[df["StageName"] == stage]
+            if len(stage_df) < 5:
+                continue
+            q1, q3 = stage_df["Amount"].quantile([0.25, 0.75])
+            iqr = q3 - q1
+            lower_bound = q1 - (1.5 * iqr)
+            upper_bound = q3 + (1.5 * iqr)
+
+            outliers = stage_df[
+                (stage_df["Amount"] < lower_bound) |
+                (stage_df["Amount"] > upper_bound)
+            ]
+            for _, row in outliers.iterrows():
+                direction = "unusually_high" if row["Amount"] > upper_bound else "unusually_low"
+                anomalies.append({
+                    "type": "amount_outlier",
+                    "severity": "medium",
+                    "opportunity_id": row["Id"],
+                    "deal_name": row["Name"],
+                    "owner": row.get("Owner.Name", "Unknown"),
+                    "details": f"Amount \${row['Amount']:,.0f} is {direction} for {stage} stage (range: \${lower_bound:,.0f}-\${upper_bound:,.0f})",
+                    "amount_at_risk": float(row.get("Amount", 0) or 0),
+                })
+
+        # 3. Past close date anomaly
+        df["CloseDate"] = pd.to_datetime(df["CloseDate"])
+        past_due = df[df["CloseDate"] < datetime.utcnow()]
+        for _, row in past_due.iterrows():
+            days_past = (datetime.utcnow() - row["CloseDate"]).days
+            anomalies.append({
+                "type": "past_close_date",
+                "severity": "high" if days_past > 30 else "medium",
+                "opportunity_id": row["Id"],
+                "deal_name": row["Name"],
+                "owner": row.get("Owner.Name", "Unknown"),
+                "details": f"Close date {row['CloseDate'].strftime('%Y-%m-%d')} is {days_past} days in the past",
+                "amount_at_risk": float(row.get("Amount", 0) or 0),
+            })
+
+        total_at_risk = sum(a["amount_at_risk"] for a in anomalies)
+
+        return {
+            "total_anomalies": len(anomalies),
+            "total_value_at_risk": total_at_risk,
+            "anomalies_by_type": pd.DataFrame(anomalies).groupby("type").size().to_dict() if anomalies else {},
+            "anomalies": sorted(anomalies, key=lambda x: x["amount_at_risk"], reverse=True),
+        }
+
+
+class EnrichmentInput(BaseModel):
+    records_to_enrich: List[Dict[str, Any]] = Field(
+        description="List of records with missing data to enrich"
+    )
+    enrichment_fields: List[str] = Field(
+        default=["company_size", "industry", "decision_maker", "email", "phone"],
+        description="Fields to attempt to enrich",
+    )
+
+
+class DataEnrichmentTool(BaseTool):
+    name: str = "enrich_crm_records"
+    description: str = """Enrich incomplete CRM records using external data sources.
+        Attempts to fill missing company firmographics, contact details, and decision-maker info."""
+    args_schema: type[BaseModel] = EnrichmentInput
+
+    def _run(
+        self,
+        records_to_enrich: List[Dict[str, Any]],
+        enrichment_fields: List[str] = None,
+    ) -> Dict[str, Any]:
+        enrichment_fields = enrichment_fields or [
+            "company_size", "industry", "decision_maker", "email", "phone"
+        ]
+        clay_api_key = os.getenv("CLAY_API_KEY")
+        clay_api_url = os.getenv("CLAY_API_URL", "https://api.clay.com/v1")
+
+        enriched_records = []
+        failed_records = []
+
+        for record in records_to_enrich:
+            try:
+                with httpx.Client(timeout=30) as client:
+                    # Query Clay for company enrichment
+                    company_name = record.get("Account.Name") or record.get("company_name")
+                    if not company_name:
+                        failed_records.append({
+                            "record_id": record.get("Id"),
+                            "reason": "No company name available for enrichment",
+                        })
+                        continue
+
+                    response = client.post(
+                        f"{clay_api_url}/enrich/company",
+                        headers={"Authorization": f"Bearer {clay_api_key}"},
+                        json={
+                            "company_name": company_name,
+                            "domain": record.get("website"),
+                            "requested_fields": enrichment_fields,
+                        },
+                    )
+
+                    if response.status_code == 200:
+                        enrichment_data = response.json()
+                        enriched_records.append({
+                            "record_id": record.get("Id"),
+                            "deal_name": record.get("Name"),
+                            "original_data": record,
+                            "enriched_data": enrichment_data,
+                            "fields_enriched": [
+                                f for f in enrichment_fields
+                                if enrichment_data.get(f) and not record.get(f)
+                            ],
+                        })
+                    else:
+                        failed_records.append({
+                            "record_id": record.get("Id"),
+                            "reason": f"API error: {response.status_code}",
+                        })
+
+            except Exception as e:
+                failed_records.append({
+                    "record_id": record.get("Id"),
+                    "reason": str(e),
+                })
+
+        return {
+            "total_processed": len(records_to_enrich),
+            "successfully_enriched": len(enriched_records),
+            "failed": len(failed_records),
+            "enriched_records": enriched_records,
+            "failed_records": failed_records,
+        }`,
+              },
+            ],
+          },
+          {
+            stepNumber: 4,
+            title: 'Workflow Orchestration',
+            description:
+              'Implement LangGraph state machine to orchestrate the multi-agent workflow with conditional routing, error handling, and state persistence.',
+            toolsUsed: ['LangGraph', 'Redis', 'Python asyncio'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'LangGraph Pipeline Health Orchestrator',
+                description:
+                  'State machine implementation that orchestrates the pipeline health agents with conditional logic and Redis-backed persistence.',
+                code: `"""
+Pipeline Health Monitoring — LangGraph Orchestration
+Supervisor pattern with conditional routing and state persistence.
+"""
+
+from typing import TypedDict, Annotated, Sequence, Literal
+from datetime import datetime
+import operator
+import json
+import redis
+
+from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+
+
+class PipelineHealthState(TypedDict):
+    """State schema for the pipeline health monitoring workflow."""
+    messages: Annotated[Sequence[BaseMessage], operator.add]
+    pipeline_data: dict
+    audit_results: dict
+    anomalies: list
+    enrichment_results: dict
+    alerts_to_send: list
+    workflow_status: str
+    error_log: list
+    run_timestamp: str
+
+
+class RedisCheckpointer(BaseCheckpointSaver):
+    """Redis-backed state persistence for workflow checkpointing."""
+
+    def __init__(self, redis_url: str, ttl_days: int = 30):
+        self.client = redis.from_url(redis_url)
+        self.ttl_seconds = ttl_days * 24 * 60 * 60
+
+    def get(self, thread_id: str) -> dict | None:
+        data = self.client.get(f"pipeline_health:{thread_id}")
+        return json.loads(data) if data else None
+
+    def put(self, thread_id: str, state: dict) -> None:
+        self.client.setex(
+            f"pipeline_health:{thread_id}",
+            self.ttl_seconds,
+            json.dumps(state, default=str),
+        )
+
+
+def create_pipeline_health_graph(
+    auditor_agent,
+    anomaly_agent,
+    enrichment_agent,
+    alert_agent,
+    redis_url: str,
+) -> StateGraph:
+    """Create the LangGraph workflow for pipeline health monitoring."""
+
+    async def run_data_audit(state: PipelineHealthState) -> dict:
+        """Execute the CRM data audit agent."""
+        try:
+            result = await auditor_agent.ainvoke({
+                "input": "Audit all open pipeline opportunities for staleness, "
+                         "missing fields, and duplicates.",
+                "pipeline_data": state.get("pipeline_data", {}),
+            })
+            return {
+                "audit_results": result,
+                "messages": [AIMessage(content=f"Audit complete: {result.get('summary', {})}")],
+                "workflow_status": "audit_complete",
+            }
+        except Exception as e:
+            return {
+                "error_log": [{"step": "audit", "error": str(e), "timestamp": datetime.utcnow().isoformat()}],
+                "workflow_status": "audit_failed",
+            }
+
+    async def run_anomaly_detection(state: PipelineHealthState) -> dict:
+        """Execute the anomaly detection agent."""
+        try:
+            audit_data = state.get("audit_results", {}).get("deals", [])
+            result = await anomaly_agent.ainvoke({
+                "input": "Analyze the audited pipeline data for anomalies.",
+                "pipeline_data": audit_data,
+            })
+            return {
+                "anomalies": result.get("anomalies", []),
+                "messages": [AIMessage(content=f"Found {len(result.get('anomalies', []))} anomalies")],
+                "workflow_status": "anomaly_detection_complete",
+            }
+        except Exception as e:
+            return {
+                "error_log": [{"step": "anomaly_detection", "error": str(e), "timestamp": datetime.utcnow().isoformat()}],
+                "workflow_status": "anomaly_detection_failed",
+            }
+
+    async def run_enrichment(state: PipelineHealthState) -> dict:
+        """Execute the data enrichment agent for records with missing data."""
+        try:
+            incomplete_records = state.get("audit_results", {}).get("incomplete_records", [])
+            if not incomplete_records:
+                return {
+                    "enrichment_results": {"skipped": True, "reason": "No records need enrichment"},
+                    "workflow_status": "enrichment_skipped",
+                }
+
+            result = await enrichment_agent.ainvoke({
+                "input": "Enrich the following incomplete CRM records.",
+                "records": incomplete_records[:50],  # Limit batch size
+            })
+            return {
+                "enrichment_results": result,
+                "messages": [AIMessage(content=f"Enriched {result.get('successfully_enriched', 0)} records")],
+                "workflow_status": "enrichment_complete",
+            }
+        except Exception as e:
+            return {
+                "error_log": [{"step": "enrichment", "error": str(e), "timestamp": datetime.utcnow().isoformat()}],
+                "workflow_status": "enrichment_failed",
+            }
+
+    async def prepare_alerts(state: PipelineHealthState) -> dict:
+        """Compile alerts from audit results and anomalies."""
+        alerts = []
+
+        # Critical audit findings
+        audit = state.get("audit_results", {})
+        if audit.get("critical_stale_deals", 0) > 0:
+            alerts.append({
+                "severity": "critical",
+                "type": "stale_deals",
+                "message": f"{audit['critical_stale_deals']} deals haven't been updated in 30+ days",
+                "value_at_risk": audit.get("stale_pipeline_value", 0),
+            })
+
+        # Anomalies
+        for anomaly in state.get("anomalies", [])[:10]:  # Top 10
+            if anomaly.get("severity") == "high":
+                alerts.append({
+                    "severity": "high",
+                    "type": anomaly["type"],
+                    "message": anomaly["details"],
+                    "deal_name": anomaly.get("deal_name"),
+                    "value_at_risk": anomaly.get("amount_at_risk", 0),
+                })
+
+        return {
+            "alerts_to_send": alerts,
+            "workflow_status": "alerts_prepared",
+        }
+
+    async def dispatch_alerts(state: PipelineHealthState) -> dict:
+        """Send alerts via the alert dispatcher agent."""
+        try:
+            alerts = state.get("alerts_to_send", [])
+            if not alerts:
+                return {"workflow_status": "complete_no_alerts"}
+
+            result = await alert_agent.ainvoke({
+                "input": "Route these pipeline health alerts to the appropriate stakeholders.",
+                "alerts": alerts,
+            })
+            return {
+                "messages": [AIMessage(content=f"Dispatched {len(alerts)} alerts")],
+                "workflow_status": "complete",
+            }
+        except Exception as e:
+            return {
+                "error_log": [{"step": "dispatch", "error": str(e), "timestamp": datetime.utcnow().isoformat()}],
+                "workflow_status": "dispatch_failed",
+            }
+
+    def should_run_enrichment(state: PipelineHealthState) -> Literal["enrich", "skip_enrich"]:
+        """Conditional: only run enrichment if there are incomplete records."""
+        incomplete = state.get("audit_results", {}).get("incomplete_records", [])
+        return "enrich" if len(incomplete) > 0 else "skip_enrich"
+
+    def should_alert(state: PipelineHealthState) -> Literal["alert", "no_alert"]:
+        """Conditional: only dispatch alerts if there are issues to report."""
+        alerts = state.get("alerts_to_send", [])
+        return "alert" if len(alerts) > 0 else "no_alert"
+
+    # Build the graph
+    workflow = StateGraph(PipelineHealthState)
+
+    # Add nodes
+    workflow.add_node("audit", run_data_audit)
+    workflow.add_node("detect_anomalies", run_anomaly_detection)
+    workflow.add_node("enrich", run_enrichment)
+    workflow.add_node("prepare_alerts", prepare_alerts)
+    workflow.add_node("dispatch_alerts", dispatch_alerts)
+
+    # Add edges
+    workflow.set_entry_point("audit")
+    workflow.add_edge("audit", "detect_anomalies")
+    workflow.add_conditional_edges(
+        "detect_anomalies",
+        should_run_enrichment,
+        {"enrich": "enrich", "skip_enrich": "prepare_alerts"},
+    )
+    workflow.add_edge("enrich", "prepare_alerts")
+    workflow.add_conditional_edges(
+        "prepare_alerts",
+        should_alert,
+        {"alert": "dispatch_alerts", "no_alert": END},
+    )
+    workflow.add_edge("dispatch_alerts", END)
+
+    # Compile with checkpointing
+    checkpointer = RedisCheckpointer(redis_url)
+    return workflow.compile(checkpointer=checkpointer)`,
+              },
+            ],
+          },
+          {
+            stepNumber: 5,
+            title: 'Deployment & Observability',
+            description:
+              'Deploy the multi-agent system with Docker, configure LangSmith for tracing, and set up Prometheus metrics for production monitoring.',
+            toolsUsed: ['Docker', 'LangSmith', 'Prometheus', 'Grafana'],
+            codeSnippets: [
+              {
+                language: 'yaml',
+                title: 'Docker Compose Deployment Configuration',
+                description:
+                  'Production deployment configuration for the pipeline health monitoring system with Redis, Prometheus, and the agent service.',
+                code: `version: '3.8'
+
+services:
+  pipeline-health-agents:
+    build:
+      context: .
+      dockerfile: Dockerfile.agents
+    container_name: pipeline-health-agents
+    restart: unless-stopped
+    environment:
+      - OPENAI_API_KEY=\${OPENAI_API_KEY}
+      - CRM_API_KEY=\${CRM_API_KEY}
+      - CRM_API_URL=\${CRM_API_URL}
+      - CLAY_API_KEY=\${CLAY_API_KEY}
+      - SLACK_WEBHOOK_URL=\${SLACK_WEBHOOK_URL}
+      - REDIS_URL=redis://redis:6379/0
+      - LANGCHAIN_TRACING_V2=true
+      - LANGCHAIN_API_KEY=\${LANGSMITH_API_KEY}
+      - LANGCHAIN_PROJECT=pipeline-health-monitor
+      - LOG_LEVEL=INFO
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: pipeline-health-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: pipeline-health-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: pipeline-health-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.scheduler
+    container_name: pipeline-health-scheduler
+    restart: unless-stopped
+    environment:
+      - AGENT_SERVICE_URL=http://pipeline-health-agents:8080
+      - SCHEDULE_CRON=0 */6 * * *
+      - SLACK_WEBHOOK_URL=\${SLACK_WEBHOOK_URL}
+    depends_on:
+      - pipeline-health-agents
+
+volumes:
+  redis_data:
+  prometheus_data:
+  grafana_data:`,
+              },
+              {
+                language: 'python',
+                title: 'Prometheus Metrics and Health Endpoints',
+                description:
+                  'FastAPI endpoints for health checks and Prometheus metrics collection for the agent system.',
+                code: `"""
+Pipeline Health Agents — Observability Module
+Prometheus metrics, health checks, and LangSmith tracing integration.
+"""
+
+from fastapi import FastAPI, HTTPException
+from prometheus_client import Counter, Histogram, Gauge, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST
+from starlette.responses import Response
+from datetime import datetime
+import asyncio
+import os
+
+app = FastAPI(title="Pipeline Health Agent Service")
+
+# Prometheus metrics
+WORKFLOW_RUNS = Counter(
+    "pipeline_health_workflow_runs_total",
+    "Total workflow runs",
+    ["status"],
+)
+WORKFLOW_DURATION = Histogram(
+    "pipeline_health_workflow_duration_seconds",
+    "Workflow execution duration",
+    buckets=[30, 60, 120, 300, 600, 1200],
+)
+ANOMALIES_DETECTED = Gauge(
+    "pipeline_health_anomalies_detected",
+    "Number of anomalies detected in last run",
+    ["severity"],
+)
+PIPELINE_AT_RISK = Gauge(
+    "pipeline_health_value_at_risk_dollars",
+    "Total pipeline value at risk",
+)
+ENRICHMENT_SUCCESS_RATE = Gauge(
+    "pipeline_health_enrichment_success_rate",
+    "Enrichment success rate (0-1)",
+)
+LAST_RUN_TIMESTAMP = Gauge(
+    "pipeline_health_last_run_timestamp",
+    "Unix timestamp of last successful run",
+)
+
+# Health state
+health_state = {
+    "last_run": None,
+    "last_status": "unknown",
+    "consecutive_failures": 0,
+}
+
+
+@app.get("/health")
+async def health_check():
+    """Kubernetes-compatible health check endpoint."""
+    if health_state["consecutive_failures"] >= 3:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Service unhealthy: {health_state['consecutive_failures']} consecutive failures",
+        )
+    return {
+        "status": "healthy",
+        "last_run": health_state["last_run"],
+        "last_status": health_state["last_status"],
+    }
+
+
+@app.get("/ready")
+async def readiness_check():
+    """Readiness probe for Kubernetes."""
+    # Check Redis connection
+    try:
+        import redis
+        r = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
+        r.ping()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Redis not ready: {e}")
+
+    # Check OpenAI API
+    if not os.getenv("OPENAI_API_KEY"):
+        raise HTTPException(status_code=503, detail="OpenAI API key not configured")
+
+    return {"status": "ready"}
+
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint."""
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+    )
+
+
+async def record_workflow_metrics(
+    status: str,
+    duration_seconds: float,
+    anomalies: dict,
+    value_at_risk: float,
+    enrichment_rate: float,
+):
+    """Record metrics after a workflow run."""
+    WORKFLOW_RUNS.labels(status=status).inc()
+    WORKFLOW_DURATION.observe(duration_seconds)
+
+    for severity, count in anomalies.items():
+        ANOMALIES_DETECTED.labels(severity=severity).set(count)
+
+    PIPELINE_AT_RISK.set(value_at_risk)
+    ENRICHMENT_SUCCESS_RATE.set(enrichment_rate)
+    LAST_RUN_TIMESTAMP.set(datetime.utcnow().timestamp())
+
+    # Update health state
+    health_state["last_run"] = datetime.utcnow().isoformat()
+    health_state["last_status"] = status
+    if status == "success":
+        health_state["consecutive_failures"] = 0
+    else:
+        health_state["consecutive_failures"] += 1
+
+
+@app.post("/run")
+async def trigger_workflow():
+    """Manually trigger the pipeline health workflow."""
+    from pipeline_orchestrator import create_pipeline_health_graph
+    from agents import create_all_agents
+
+    start_time = datetime.utcnow()
+
+    try:
+        agents = create_all_agents()
+        graph = create_pipeline_health_graph(
+            auditor_agent=agents["auditor"],
+            anomaly_agent=agents["anomaly"],
+            enrichment_agent=agents["enrichment"],
+            alert_agent=agents["alert"],
+            redis_url=os.getenv("REDIS_URL"),
+        )
+
+        result = await graph.ainvoke({
+            "messages": [],
+            "run_timestamp": start_time.isoformat(),
+        })
+
+        duration = (datetime.utcnow() - start_time).total_seconds()
+
+        await record_workflow_metrics(
+            status="success",
+            duration_seconds=duration,
+            anomalies={
+                "high": len([a for a in result.get("anomalies", []) if a.get("severity") == "high"]),
+                "medium": len([a for a in result.get("anomalies", []) if a.get("severity") == "medium"]),
+            },
+            value_at_risk=sum(a.get("amount_at_risk", 0) for a in result.get("anomalies", [])),
+            enrichment_rate=result.get("enrichment_results", {}).get("success_rate", 0),
+        )
+
+        return {
+            "status": "success",
+            "duration_seconds": duration,
+            "anomalies_found": len(result.get("anomalies", [])),
+            "alerts_sent": len(result.get("alerts_to_send", [])),
+        }
+
+    except Exception as e:
+        duration = (datetime.utcnow() - start_time).total_seconds()
+        await record_workflow_metrics(
+            status="failed",
+            duration_seconds=duration,
+            anomalies={},
+            value_at_risk=0,
+            enrichment_rate=0,
+        )
+        raise HTTPException(status_code=500, detail=str(e))`,
+              },
+            ],
+          },
+        ],
+      },
     },
 
     // ── Pain Point 2: Lead Scoring Latency ──────────────────────────────
@@ -1732,6 +3080,1472 @@ if __name__ == "__main__":
         send_slack_alerts(alerts)
     else:
         print("Lead scoring model health checks passed.")`,
+              },
+            ],
+          },
+        ],
+      },
+      aiEasyWin: {
+        overview:
+          'Use ChatGPT/Claude with Zapier to build a no-code lead scoring system that analyzes engagement signals in real-time and automatically routes hot leads to sales reps.',
+        estimatedMonthlyCost: '$120 - $200/month',
+        primaryTools: ['ChatGPT Plus ($20/mo)', 'Zapier Pro ($29.99/mo)', 'HubSpot or Salesforce (existing)'],
+        alternativeTools: ['Claude Pro ($20/mo)', 'Make ($10.59/mo)', 'Apollo AI ($49/mo)', 'Gong AI (varies)'],
+        steps: [
+          {
+            stepNumber: 1,
+            title: 'Data Extraction & Preparation',
+            description:
+              'Set up Zapier triggers to capture lead engagement signals in real-time: form submissions, email opens, page views, and content downloads. Aggregate signals into a scoring-ready format.',
+            toolsUsed: ['Zapier', 'HubSpot/Salesforce', 'Google Sheets'],
+            codeSnippets: [
+              {
+                language: 'json',
+                title: 'Zapier Multi-Trigger Lead Signal Aggregation',
+                description:
+                  'Configures multiple Zapier triggers to capture engagement signals and aggregate them for AI-powered scoring.',
+                code: `{
+  "workflow_name": "Lead Signal Aggregator",
+  "triggers": [
+    {
+      "id": "form_submission",
+      "app": "hubspot",
+      "event": "new_form_submission",
+      "config": {
+        "form_types": ["contact_us", "demo_request", "content_download"],
+        "output_mapping": {
+          "lead_email": "{{trigger.email}}",
+          "signal_type": "form_submission",
+          "signal_value": "{{trigger.form_name}}",
+          "signal_weight": "{{#if trigger.form_name == 'demo_request'}}20{{else}}5{{/if}}",
+          "timestamp": "{{trigger.submitted_at}}"
+        }
+      }
+    },
+    {
+      "id": "email_engagement",
+      "app": "hubspot",
+      "event": "email_opened_or_clicked",
+      "config": {
+        "filter": {
+          "campaign_type": ["nurture", "sales_outreach", "product_update"]
+        },
+        "output_mapping": {
+          "lead_email": "{{trigger.recipient_email}}",
+          "signal_type": "{{#if trigger.clicked}}email_click{{else}}email_open{{/if}}",
+          "signal_value": "{{trigger.email_subject}}",
+          "signal_weight": "{{#if trigger.clicked}}8{{else}}2{{/if}}",
+          "timestamp": "{{trigger.event_timestamp}}"
+        }
+      }
+    },
+    {
+      "id": "page_view",
+      "app": "hubspot",
+      "event": "page_viewed",
+      "config": {
+        "filter": {
+          "page_url_contains": ["/pricing", "/demo", "/case-study", "/product"]
+        },
+        "output_mapping": {
+          "lead_email": "{{trigger.contact_email}}",
+          "signal_type": "page_view",
+          "signal_value": "{{trigger.page_url}}",
+          "signal_weight": "{{#if trigger.page_url contains '/pricing'}}15{{else if trigger.page_url contains '/demo'}}12{{else}}5{{/if}}",
+          "timestamp": "{{trigger.viewed_at}}"
+        }
+      }
+    }
+  ],
+  "aggregation_action": {
+    "app": "google_sheets",
+    "action": "append_or_update_row",
+    "config": {
+      "spreadsheet_id": "{{env.LEAD_SIGNALS_SHEET_ID}}",
+      "worksheet": "Lead_Signals",
+      "lookup_column": "Lead_Email",
+      "row_data": {
+        "Lead_Email": "{{trigger.lead_email}}",
+        "Last_Signal_Type": "{{trigger.signal_type}}",
+        "Last_Signal_Value": "{{trigger.signal_value}}",
+        "Last_Signal_Timestamp": "{{trigger.timestamp}}",
+        "Total_Signals": "={{COUNTIF(A:A, trigger.lead_email)}}",
+        "Cumulative_Score": "={{SUMIF(A:A, trigger.lead_email, D:D)}}",
+        "Last_Updated": "={{NOW()}}"
+      }
+    }
+  }
+}`,
+              },
+            ],
+          },
+          {
+            stepNumber: 2,
+            title: 'AI-Powered Analysis',
+            description:
+              'Use ChatGPT or Claude to analyze lead signals, calculate conversion probability, and categorize leads as hot/warm/cold with specific routing recommendations.',
+            toolsUsed: ['ChatGPT Plus', 'Claude Pro', 'Zapier AI Actions'],
+            codeSnippets: [
+              {
+                language: 'yaml',
+                title: 'Lead Scoring AI Prompt Template',
+                description:
+                  'Structured prompt for AI to score leads based on engagement signals and recommend immediate actions.',
+                code: `system_prompt: |
+  You are an expert Sales Development AI that scores leads based on
+  behavioral signals. You understand that timing is critical - a lead
+  viewing pricing pages should be contacted within 5 minutes.
+
+  Your scoring philosophy:
+  - Demo requests and pricing page views indicate high intent
+  - Multiple signals in 24 hours indicate active evaluation
+  - Email clicks on product content show genuine interest
+  - Content downloads without follow-up activity may indicate research phase
+
+user_prompt_template: |
+  ## Lead Scoring Request
+
+  **Lead Email:** {{lead_email}}
+  **Company:** {{company_name}}
+  **Job Title:** {{job_title}}
+  **Lead Source:** {{lead_source}}
+  **Days Since Created:** {{days_since_created}}
+
+  ### Engagement Signals (Last 30 Days):
+  \`\`\`json
+  {{engagement_signals_json}}
+  \`\`\`
+
+  ### Firmographic Data:
+  - Company Size: {{employee_count}}
+  - Industry: {{industry}}
+  - Annual Revenue: {{annual_revenue}}
+
+  ### Scoring Instructions:
+
+  1. **Calculate Engagement Score (0-100):**
+     - Weight recent signals (last 7 days) at 2x
+     - High-intent pages (pricing, demo) score higher
+     - Multiple sessions indicate active evaluation
+
+  2. **Calculate Fit Score (0-100):**
+     - Company size alignment with ICP
+     - Industry match
+     - Job title decision-making authority
+
+  3. **Determine Lead Category:**
+     - HOT (combined > 150): Contact within 5 minutes
+     - WARM (combined 80-150): Contact within 4 hours
+     - COLD (combined < 80): Add to nurture sequence
+
+  4. **Generate Action Recommendation:**
+     - Specific outreach message suggestion
+     - Recommended channel (call vs email)
+     - Key talking points based on content consumed
+
+  ### Required Output Format:
+
+  \`\`\`json
+  {
+    "lead_email": "{{lead_email}}",
+    "scores": {
+      "engagement_score": <0-100>,
+      "fit_score": <0-100>,
+      "combined_score": <0-200>,
+      "conversion_probability": <0.0-1.0>
+    },
+    "category": "<HOT|WARM|COLD>",
+    "urgency": "<IMMEDIATE|SAME_DAY|NEXT_DAY|NURTURE>",
+    "reasoning": {
+      "engagement_factors": ["<factor 1>", "<factor 2>"],
+      "fit_factors": ["<factor 1>", "<factor 2>"],
+      "risk_factors": ["<any concerns>"]
+    },
+    "recommended_action": {
+      "channel": "<call|email|linkedin>",
+      "timing": "<specific timeframe>",
+      "message_suggestion": "<personalized opening line>",
+      "talking_points": ["<point 1>", "<point 2>"],
+      "content_to_reference": "<specific content they engaged with>"
+    },
+    "routing": {
+      "assigned_to": "<SDR|AE|nurture_automation>",
+      "queue_priority": <1-10>
+    }
+  }
+  \`\`\`
+
+output_instructions: |
+  - Be specific about WHY the lead scored as they did
+  - Personalize the message suggestion based on actual content consumed
+  - If lead is HOT, emphasize urgency in routing
+  - Include any red flags (e.g., competitor employee, student email)`,
+              },
+            ],
+          },
+          {
+            stepNumber: 3,
+            title: 'Automation & Delivery',
+            description:
+              'Configure Zapier to automatically score leads in real-time, update CRM records, and route hot leads to sales reps via Slack with personalized talking points.',
+            toolsUsed: ['Zapier', 'Slack', 'HubSpot/Salesforce', 'Calendar'],
+            codeSnippets: [
+              {
+                language: 'json',
+                title: 'Zapier Real-Time Lead Scoring and Routing Workflow',
+                description:
+                  'Complete Zapier workflow that scores leads with AI, updates CRM, and routes hot leads to available reps instantly.',
+                code: `{
+  "workflow_name": "Real-Time AI Lead Scoring & Routing",
+  "trigger": {
+    "app": "google_sheets",
+    "event": "new_or_updated_row",
+    "config": {
+      "spreadsheet_id": "{{env.LEAD_SIGNALS_SHEET_ID}}",
+      "worksheet": "Lead_Signals",
+      "filter": {
+        "Cumulative_Score": { "greater_than": 20 },
+        "Last_Scored_At": { "older_than_minutes": 30 }
+      }
+    }
+  },
+  "steps": [
+    {
+      "step_number": 1,
+      "name": "Fetch Lead Details from CRM",
+      "app": "hubspot",
+      "action": "get_contact",
+      "config": {
+        "email": "{{trigger.Lead_Email}}",
+        "properties": [
+          "firstname", "lastname", "company", "jobtitle",
+          "industry", "numberofemployees", "annualrevenue",
+          "hs_lead_status", "lifecyclestage", "createdate"
+        ]
+      }
+    },
+    {
+      "step_number": 2,
+      "name": "Fetch Engagement History",
+      "app": "hubspot",
+      "action": "get_contact_activity",
+      "config": {
+        "contact_id": "{{step1.contact_id}}",
+        "activity_types": ["PAGE_VIEW", "EMAIL_OPEN", "EMAIL_CLICK", "FORM_SUBMISSION"],
+        "days_back": 30,
+        "limit": 50
+      }
+    },
+    {
+      "step_number": 3,
+      "name": "AI Lead Scoring",
+      "app": "chatgpt",
+      "action": "conversation",
+      "config": {
+        "model": "gpt-4",
+        "system_message": "{{prompts.lead_scoring.system}}",
+        "user_message": "{{prompts.lead_scoring.user | replace_all(trigger, step1, step2)}}",
+        "max_tokens": 2000,
+        "temperature": 0.2
+      }
+    },
+    {
+      "step_number": 4,
+      "name": "Parse AI Response",
+      "app": "code",
+      "action": "run_javascript",
+      "config": {
+        "code": "const result = JSON.parse(inputData.ai_response); return result;"
+      }
+    },
+    {
+      "step_number": 5,
+      "name": "Update CRM with Score",
+      "app": "hubspot",
+      "action": "update_contact",
+      "config": {
+        "contact_id": "{{step1.contact_id}}",
+        "properties": {
+          "lead_score_ai": "{{step4.scores.combined_score}}",
+          "lead_category_ai": "{{step4.category}}",
+          "conversion_probability": "{{step4.scores.conversion_probability}}",
+          "ai_scored_at": "{{now}}",
+          "recommended_action": "{{step4.recommended_action.message_suggestion}}"
+        }
+      }
+    },
+    {
+      "step_number": 6,
+      "name": "Route HOT Leads to Slack",
+      "condition": "{{step4.category == 'HOT'}}",
+      "app": "slack",
+      "action": "send_channel_message",
+      "config": {
+        "channel": "#hot-leads",
+        "message_blocks": [
+          {
+            "type": "header",
+            "text": ":fire: HOT LEAD - Contact Within 5 Minutes!"
+          },
+          {
+            "type": "section",
+            "text": "*{{step1.firstname}} {{step1.lastname}}* at *{{step1.company}}*\\nTitle: {{step1.jobtitle}}\\nScore: {{step4.scores.combined_score}}/200 ({{step4.scores.conversion_probability | multiply:100}}% conversion probability)"
+          },
+          {
+            "type": "section",
+            "text": "*Why they're hot:*\\n{{#each step4.reasoning.engagement_factors}}• {{this}}\\n{{/each}}"
+          },
+          {
+            "type": "section",
+            "text": "*Recommended approach:*\\n:phone: {{step4.recommended_action.channel}} - {{step4.recommended_action.timing}}\\n\\n_\\"{{step4.recommended_action.message_suggestion}}\\"_"
+          },
+          {
+            "type": "section",
+            "text": "*Talking points:*\\n{{#each step4.recommended_action.talking_points}}• {{this}}\\n{{/each}}"
+          },
+          {
+            "type": "actions",
+            "elements": [
+              {
+                "type": "button",
+                "text": "Claim This Lead",
+                "action_id": "claim_lead_{{step1.contact_id}}",
+                "style": "primary"
+              },
+              {
+                "type": "button",
+                "text": "View in HubSpot",
+                "url": "https://app.hubspot.com/contacts/{{env.HUBSPOT_PORTAL_ID}}/contact/{{step1.contact_id}}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "step_number": 7,
+      "name": "Create Task for WARM Leads",
+      "condition": "{{step4.category == 'WARM'}}",
+      "app": "hubspot",
+      "action": "create_task",
+      "config": {
+        "contact_id": "{{step1.contact_id}}",
+        "subject": "Follow up with {{step1.firstname}} - AI Score: {{step4.scores.combined_score}}",
+        "body": "{{step4.recommended_action.message_suggestion}}\\n\\nTalking Points:\\n{{step4.recommended_action.talking_points | join('\\n')}}",
+        "due_date": "{{#if step4.urgency == 'SAME_DAY'}}{{today}}{{else}}{{tomorrow}}{{/if}}",
+        "priority": "HIGH"
+      }
+    },
+    {
+      "step_number": 8,
+      "name": "Update Signal Sheet with Score",
+      "app": "google_sheets",
+      "action": "update_row",
+      "config": {
+        "spreadsheet_id": "{{env.LEAD_SIGNALS_SHEET_ID}}",
+        "worksheet": "Lead_Signals",
+        "lookup_column": "Lead_Email",
+        "lookup_value": "{{trigger.Lead_Email}}",
+        "row_data": {
+          "AI_Score": "{{step4.scores.combined_score}}",
+          "AI_Category": "{{step4.category}}",
+          "Conversion_Probability": "{{step4.scores.conversion_probability}}",
+          "Last_Scored_At": "{{now}}",
+          "Routed_To": "{{#if step4.category == 'HOT'}}hot-leads-channel{{else}}task-queue{{/if}}"
+        }
+      }
+    }
+  ]
+}`,
+              },
+            ],
+          },
+        ],
+      },
+      aiAdvanced: {
+        overview:
+          'Deploy a multi-agent ML system that ingests engagement signals in real-time, trains adaptive scoring models, and routes leads through an intelligent assignment engine that matches leads to the best available rep.',
+        estimatedMonthlyCost: '$800 - $1,500/month',
+        architecture:
+          'A Supervisor agent coordinates four specialists: SignalCollector aggregates engagement data, ScoringModelAgent maintains and retrains the ML model, LeadAnalyzer generates scores with explanations, and RoutingAgent matches leads to optimal reps based on expertise and availability.',
+        agents: [
+          {
+            name: 'SignalCollectorAgent',
+            role: 'Engagement Signal Aggregator',
+            goal: 'Collect and normalize engagement signals from multiple sources in real-time, maintaining a unified lead activity timeline.',
+            tools: ['HubSpot API', 'Salesforce API', 'Segment', 'Webhook Receiver'],
+          },
+          {
+            name: 'ScoringModelAgent',
+            role: 'ML Model Trainer',
+            goal: 'Train and continuously improve lead scoring models using historical conversion data, detecting feature drift and triggering retraining.',
+            tools: ['Scikit-learn', 'MLflow', 'Feature Store', 'Model Registry'],
+          },
+          {
+            name: 'LeadAnalyzerAgent',
+            role: 'Real-Time Lead Scorer',
+            goal: 'Score incoming leads in sub-second latency, generate human-readable explanations, and flag high-intent signals for immediate action.',
+            tools: ['ML Model', 'SHAP Explainer', 'Redis Cache'],
+          },
+          {
+            name: 'IntelligentRouterAgent',
+            role: 'Lead-to-Rep Matcher',
+            goal: 'Match scored leads to the optimal sales rep based on expertise, current workload, timezone, and historical performance with similar leads.',
+            tools: ['Rep Profile Database', 'Calendar API', 'Workload Balancer'],
+          },
+        ],
+        orchestration: {
+          framework: 'LangGraph',
+          pattern: 'Sequential',
+          stateManagement: 'Redis-backed real-time state with Kafka for signal streaming',
+        },
+        steps: [
+          {
+            stepNumber: 1,
+            title: 'Agent Architecture & Role Design',
+            description:
+              'Define the real-time lead scoring multi-agent system with CrewAI, establishing clear roles for signal collection, model management, scoring, and intelligent routing.',
+            toolsUsed: ['CrewAI', 'LangChain', 'Python'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'Lead Scoring Agent Crew Definition',
+                description:
+                  'CrewAI configuration for the real-time lead scoring system with four specialist agents.',
+                code: `"""
+Real-Time Lead Scoring Multi-Agent System
+CrewAI-based agent definitions for sub-second lead scoring and routing.
+"""
+
+from crewai import Agent, Crew, Task, Process
+from langchain_openai import ChatOpenAI
+from typing import List, Dict, Any
+import os
+
+llm = ChatOpenAI(
+    model="gpt-4-turbo-preview",
+    temperature=0.1,
+    api_key=os.getenv("OPENAI_API_KEY"),
+)
+
+
+class LeadScoringAgents:
+    """Factory class for creating lead scoring agents."""
+
+    @staticmethod
+    def create_signal_collector_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="Engagement Signal Aggregator",
+            goal="""Collect and unify engagement signals from all sources:
+                1. Website activity (page views, time on site, scroll depth)
+                2. Email engagement (opens, clicks, replies)
+                3. Content consumption (downloads, video views, webinar attendance)
+                4. Social signals (LinkedIn profile views, ad clicks)
+                5. Sales touchpoints (calls, meetings, proposals sent)""",
+            backstory="""You are a data integration specialist who built the
+                customer data platform at a unicorn SaaS company. You understand
+                that a single missed signal can mean a lost deal. You normalize
+                data from disparate sources into a unified timeline that tells
+                the complete story of a lead's journey.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=10,
+        )
+
+    @staticmethod
+    def create_scoring_model_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="ML Model Manager",
+            goal="""Maintain and improve the lead scoring ML model:
+                1. Monitor model performance against actual conversions
+                2. Detect feature drift and data quality issues
+                3. Trigger retraining when accuracy drops below threshold
+                4. A/B test new features and model architectures
+                5. Ensure model fairness across segments""",
+            backstory="""You are an ML engineer who deployed scoring models at
+                scale for a Fortune 500 sales organization. You know that models
+                decay over time and that the best model is one that's continuously
+                learning. You balance model sophistication with interpretability
+                because sales teams don't trust black boxes.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=15,
+        )
+
+    @staticmethod
+    def create_lead_analyzer_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="Real-Time Lead Scorer",
+            goal="""Score leads with sub-second latency and full explainability:
+                1. Generate scores using the latest ML model
+                2. Provide SHAP-based explanations for each score
+                3. Flag leads showing buying signals for immediate action
+                4. Compare lead to historical conversion patterns
+                5. Predict optimal contact timing and channel""",
+            backstory="""You are a sales intelligence analyst who can read intent
+                from behavioral patterns. You've studied thousands of won deals
+                and know the signals that separate tire-kickers from buyers.
+                You explain your reasoning clearly so reps trust and act on
+                your recommendations.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=10,
+        )
+
+    @staticmethod
+    def create_routing_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="Intelligent Lead Router",
+            goal="""Match leads to the optimal sales rep considering:
+                1. Rep expertise with the lead's industry/company size
+                2. Current workload and capacity
+                3. Timezone alignment for faster response
+                4. Historical win rate with similar leads
+                5. Round-robin fairness when factors are equal""",
+            backstory="""You are a sales operations leader who increased team
+                conversion rates 40% through intelligent routing. You know that
+                the right rep for a lead isn't always the next in queue - it's
+                the one most likely to close. You balance optimization with
+                fairness to keep the team motivated.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=10,
+        )
+
+
+def create_lead_scoring_crew(
+    signal_tools: List[Any],
+    model_tools: List[Any],
+    analyzer_tools: List[Any],
+    routing_tools: List[Any],
+) -> Crew:
+    """Create the complete lead scoring crew."""
+    factory = LeadScoringAgents()
+
+    signal_collector = factory.create_signal_collector_agent(signal_tools)
+    model_manager = factory.create_scoring_model_agent(model_tools)
+    lead_analyzer = factory.create_lead_analyzer_agent(analyzer_tools)
+    router = factory.create_routing_agent(routing_tools)
+
+    return Crew(
+        agents=[signal_collector, model_manager, lead_analyzer, router],
+        process=Process.sequential,
+        verbose=True,
+        memory=True,
+        cache=True,
+        max_rpm=60,  # Higher rate for real-time scoring
+    )`,
+              },
+            ],
+          },
+          {
+            stepNumber: 2,
+            title: 'Data Ingestion Agent(s)',
+            description:
+              'Implement the Signal Collector agent with tools to ingest engagement data from multiple sources and maintain a unified lead activity timeline.',
+            toolsUsed: ['LangChain Tools', 'HubSpot API', 'Segment', 'Redis Streams'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'Signal Collector Agent Tools',
+                description:
+                  'Tool implementations for real-time engagement signal collection and normalization.',
+                code: `"""
+Signal Collector Agent — Tool Implementations
+Real-time engagement signal ingestion from multiple sources.
+"""
+
+from langchain.tools import BaseTool
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta
+import httpx
+import redis
+import json
+import os
+
+
+class SignalIngestionInput(BaseModel):
+    lead_email: str = Field(description="Email address of the lead")
+    lookback_days: int = Field(default=30, description="Days of history to fetch")
+
+
+class EngagementSignalCollectorTool(BaseTool):
+    name: str = "collect_engagement_signals"
+    description: str = """Collect all engagement signals for a lead from multiple sources.
+        Returns a unified timeline of website visits, email engagement, content downloads,
+        and sales touchpoints."""
+    args_schema: type[BaseModel] = SignalIngestionInput
+
+    def __init__(self):
+        super().__init__()
+        self.redis_client = redis.from_url(os.getenv("REDIS_URL"))
+        self.hubspot_key = os.getenv("HUBSPOT_API_KEY")
+        self.segment_key = os.getenv("SEGMENT_WRITE_KEY")
+
+    def _run(self, lead_email: str, lookback_days: int = 30) -> Dict[str, Any]:
+        signals = []
+        cutoff_date = datetime.utcnow() - timedelta(days=lookback_days)
+
+        # 1. Fetch from HubSpot
+        hubspot_signals = self._fetch_hubspot_signals(lead_email, cutoff_date)
+        signals.extend(hubspot_signals)
+
+        # 2. Fetch from Redis cache (real-time website events)
+        redis_signals = self._fetch_redis_signals(lead_email, cutoff_date)
+        signals.extend(redis_signals)
+
+        # 3. Calculate signal aggregates
+        signals_sorted = sorted(signals, key=lambda x: x["timestamp"], reverse=True)
+
+        return {
+            "lead_email": lead_email,
+            "signal_count": len(signals_sorted),
+            "signals": signals_sorted[:100],  # Cap at 100 most recent
+            "aggregates": self._calculate_aggregates(signals_sorted),
+            "recency_score": self._calculate_recency_score(signals_sorted),
+            "velocity_score": self._calculate_velocity_score(signals_sorted),
+        }
+
+    def _fetch_hubspot_signals(
+        self, email: str, cutoff: datetime
+    ) -> List[Dict[str, Any]]:
+        signals = []
+        with httpx.Client(timeout=30) as client:
+            # Get contact ID
+            contact_resp = client.get(
+                f"https://api.hubapi.com/crm/v3/objects/contacts/{email}",
+                params={"idProperty": "email"},
+                headers={"Authorization": f"Bearer {self.hubspot_key}"},
+            )
+            if contact_resp.status_code != 200:
+                return signals
+
+            contact_id = contact_resp.json()["id"]
+
+            # Fetch engagement timeline
+            timeline_resp = client.get(
+                f"https://api.hubapi.com/crm/v3/objects/contacts/{contact_id}/associations/engagements",
+                headers={"Authorization": f"Bearer {self.hubspot_key}"},
+            )
+            if timeline_resp.status_code == 200:
+                for engagement in timeline_resp.json().get("results", []):
+                    eng_type = engagement.get("type", "unknown")
+                    timestamp = datetime.fromisoformat(
+                        engagement.get("timestamp", "").replace("Z", "+00:00")
+                    )
+                    if timestamp >= cutoff:
+                        signals.append({
+                            "source": "hubspot",
+                            "type": self._map_hubspot_type(eng_type),
+                            "timestamp": timestamp.isoformat(),
+                            "details": engagement.get("metadata", {}),
+                            "weight": self._get_signal_weight(eng_type),
+                        })
+
+        return signals
+
+    def _fetch_redis_signals(
+        self, email: str, cutoff: datetime
+    ) -> List[Dict[str, Any]]:
+        signals = []
+        stream_key = f"signals:{email.lower()}"
+        cutoff_ms = int(cutoff.timestamp() * 1000)
+
+        # Read from Redis stream
+        entries = self.redis_client.xrange(
+            stream_key, min=cutoff_ms, max="+", count=500
+        )
+        for entry_id, data in entries:
+            signals.append({
+                "source": "website",
+                "type": data.get(b"type", b"page_view").decode(),
+                "timestamp": datetime.fromtimestamp(int(entry_id.decode().split("-")[0]) / 1000).isoformat(),
+                "details": json.loads(data.get(b"details", b"{}").decode()),
+                "weight": int(data.get(b"weight", b"1").decode()),
+            })
+
+        return signals
+
+    def _map_hubspot_type(self, hubspot_type: str) -> str:
+        mapping = {
+            "EMAIL": "email_sent",
+            "EMAIL_OPEN": "email_open",
+            "EMAIL_CLICK": "email_click",
+            "FORM_SUBMISSION": "form_submission",
+            "MEETING": "meeting_scheduled",
+            "CALL": "call",
+            "NOTE": "note",
+        }
+        return mapping.get(hubspot_type, "other")
+
+    def _get_signal_weight(self, signal_type: str) -> int:
+        weights = {
+            "form_submission": 15,
+            "meeting_scheduled": 25,
+            "email_click": 8,
+            "email_open": 2,
+            "call": 20,
+            "page_view_pricing": 18,
+            "page_view_demo": 15,
+            "page_view": 3,
+            "content_download": 10,
+        }
+        return weights.get(signal_type, 1)
+
+    def _calculate_aggregates(self, signals: List[Dict]) -> Dict[str, int]:
+        agg = {}
+        for s in signals:
+            agg[s["type"]] = agg.get(s["type"], 0) + 1
+        return agg
+
+    def _calculate_recency_score(self, signals: List[Dict]) -> float:
+        if not signals:
+            return 0.0
+        latest = datetime.fromisoformat(signals[0]["timestamp"].replace("Z", "+00:00"))
+        hours_ago = (datetime.utcnow() - latest.replace(tzinfo=None)).total_seconds() / 3600
+        if hours_ago <= 1:
+            return 100.0
+        elif hours_ago <= 24:
+            return 80.0
+        elif hours_ago <= 72:
+            return 50.0
+        elif hours_ago <= 168:
+            return 30.0
+        return 10.0
+
+    def _calculate_velocity_score(self, signals: List[Dict]) -> float:
+        if len(signals) < 2:
+            return 0.0
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        recent_signals = [
+            s for s in signals
+            if datetime.fromisoformat(s["timestamp"].replace("Z", "+00:00")).replace(tzinfo=None) >= week_ago
+        ]
+        # More signals in recent week = higher velocity
+        return min(len(recent_signals) * 10, 100.0)`,
+              },
+            ],
+          },
+          {
+            stepNumber: 3,
+            title: 'Analysis & Decision Agent(s)',
+            description:
+              'Implement the Lead Analyzer and ML Model agents that score leads in real-time with SHAP explanations and continuously improve model accuracy.',
+            toolsUsed: ['Scikit-learn', 'SHAP', 'MLflow', 'Redis'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'Lead Scoring ML Model and Analyzer Tools',
+                description:
+                  'Tools for real-time ML scoring with explainability and model performance monitoring.',
+                code: `"""
+Lead Scoring ML Model — Training and Real-Time Inference
+"""
+
+from langchain.tools import BaseTool
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+import numpy as np
+import pandas as pd
+import joblib
+import shap
+import mlflow
+import redis
+import json
+import os
+
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score, precision_recall_curve
+
+
+class LeadScoringInput(BaseModel):
+    lead_email: str = Field(description="Email of lead to score")
+    signals: Dict[str, Any] = Field(description="Aggregated engagement signals")
+    firmographics: Dict[str, Any] = Field(description="Company and contact attributes")
+
+
+class RealTimeLeadScorerTool(BaseTool):
+    name: str = "score_lead"
+    description: str = """Score a lead in real-time using the ML model.
+        Returns conversion probability, category, and SHAP-based explanation."""
+    args_schema: type[BaseModel] = LeadScoringInput
+
+    def __init__(self):
+        super().__init__()
+        self.redis_client = redis.from_url(os.getenv("REDIS_URL"))
+        self.model = self._load_model()
+        self.explainer = shap.TreeExplainer(self.model)
+        self.feature_names = self._get_feature_names()
+
+    def _load_model(self):
+        model_path = os.getenv("MODEL_PATH", "/app/models/lead_scorer.pkl")
+        return joblib.load(model_path)
+
+    def _get_feature_names(self) -> List[str]:
+        return [
+            "total_signals", "recency_score", "velocity_score",
+            "email_opens", "email_clicks", "page_views_pricing",
+            "page_views_demo", "form_submissions", "content_downloads",
+            "employee_count_bucket", "industry_score", "title_score",
+            "days_since_created", "total_sessions", "avg_session_duration",
+        ]
+
+    def _run(
+        self,
+        lead_email: str,
+        signals: Dict[str, Any],
+        firmographics: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        # Build feature vector
+        features = self._extract_features(signals, firmographics)
+        feature_array = np.array([features])
+
+        # Get prediction
+        probability = float(self.model.predict_proba(feature_array)[0][1])
+
+        # Calculate SHAP values for explanation
+        shap_values = self.explainer.shap_values(feature_array)
+        if isinstance(shap_values, list):
+            shap_values = shap_values[1]  # For binary classification
+
+        # Generate explanation
+        explanation = self._generate_explanation(features, shap_values[0])
+
+        # Determine category
+        if probability >= 0.75:
+            category = "HOT"
+            urgency = "IMMEDIATE"
+        elif probability >= 0.45:
+            category = "WARM"
+            urgency = "SAME_DAY"
+        elif probability >= 0.25:
+            category = "COOL"
+            urgency = "NEXT_DAY"
+        else:
+            category = "COLD"
+            urgency = "NURTURE"
+
+        # Calculate engagement and fit scores
+        engagement_score = min(100, (
+            signals.get("recency_score", 0) * 0.4 +
+            signals.get("velocity_score", 0) * 0.3 +
+            min(signals.get("signal_count", 0) * 2, 30)
+        ))
+        fit_score = self._calculate_fit_score(firmographics)
+
+        # Cache the score
+        self._cache_score(lead_email, probability, category)
+
+        return {
+            "lead_email": lead_email,
+            "scores": {
+                "conversion_probability": round(probability, 4),
+                "engagement_score": round(engagement_score, 1),
+                "fit_score": round(fit_score, 1),
+                "combined_score": round(engagement_score + fit_score, 1),
+            },
+            "category": category,
+            "urgency": urgency,
+            "explanation": explanation,
+            "top_positive_factors": [
+                f for f in explanation["factors"] if f["impact"] == "positive"
+            ][:3],
+            "top_negative_factors": [
+                f for f in explanation["factors"] if f["impact"] == "negative"
+            ][:2],
+            "model_version": os.getenv("MODEL_VERSION", "v1.0"),
+            "scored_at": datetime.utcnow().isoformat(),
+        }
+
+    def _extract_features(
+        self, signals: Dict, firmographics: Dict
+    ) -> List[float]:
+        aggregates = signals.get("aggregates", {})
+        return [
+            signals.get("signal_count", 0),
+            signals.get("recency_score", 0),
+            signals.get("velocity_score", 0),
+            aggregates.get("email_open", 0),
+            aggregates.get("email_click", 0),
+            aggregates.get("page_view_pricing", 0),
+            aggregates.get("page_view_demo", 0),
+            aggregates.get("form_submission", 0),
+            aggregates.get("content_download", 0),
+            self._bucket_employee_count(firmographics.get("employee_count", 0)),
+            self._score_industry(firmographics.get("industry", "")),
+            self._score_title(firmographics.get("job_title", "")),
+            firmographics.get("days_since_created", 0),
+            aggregates.get("sessions", 1),
+            signals.get("avg_session_duration", 0),
+        ]
+
+    def _bucket_employee_count(self, count: int) -> int:
+        if count <= 50:
+            return 1
+        elif count <= 200:
+            return 2
+        elif count <= 1000:
+            return 3
+        elif count <= 5000:
+            return 4
+        return 5
+
+    def _score_industry(self, industry: str) -> float:
+        high_value = ["technology", "finance", "healthcare", "saas"]
+        medium_value = ["manufacturing", "retail", "professional_services"]
+        industry_lower = industry.lower()
+        if any(i in industry_lower for i in high_value):
+            return 1.0
+        elif any(i in industry_lower for i in medium_value):
+            return 0.6
+        return 0.3
+
+    def _score_title(self, title: str) -> float:
+        executive = ["ceo", "cfo", "cto", "coo", "president", "founder"]
+        director = ["director", "vp", "head of", "chief"]
+        manager = ["manager", "lead", "senior"]
+        title_lower = title.lower()
+        if any(t in title_lower for t in executive):
+            return 1.0
+        elif any(t in title_lower for t in director):
+            return 0.8
+        elif any(t in title_lower for t in manager):
+            return 0.5
+        return 0.2
+
+    def _calculate_fit_score(self, firmographics: Dict) -> float:
+        industry_score = self._score_industry(firmographics.get("industry", "")) * 40
+        title_score = self._score_title(firmographics.get("job_title", "")) * 35
+        size_score = min(self._bucket_employee_count(firmographics.get("employee_count", 0)) * 5, 25)
+        return industry_score + title_score + size_score
+
+    def _generate_explanation(
+        self, features: List[float], shap_values: np.ndarray
+    ) -> Dict[str, Any]:
+        factors = []
+        for i, (name, value, shap_val) in enumerate(
+            zip(self.feature_names, features, shap_values)
+        ):
+            if abs(shap_val) > 0.01:  # Only significant factors
+                factors.append({
+                    "feature": name,
+                    "value": value,
+                    "shap_value": round(float(shap_val), 4),
+                    "impact": "positive" if shap_val > 0 else "negative",
+                    "description": self._describe_factor(name, value, shap_val),
+                })
+
+        factors.sort(key=lambda x: abs(x["shap_value"]), reverse=True)
+        return {
+            "base_probability": round(float(self.explainer.expected_value), 4),
+            "factors": factors,
+        }
+
+    def _describe_factor(self, name: str, value: float, shap: float) -> str:
+        impact = "increases" if shap > 0 else "decreases"
+        descriptions = {
+            "recency_score": f"Recent activity (score: {value:.0f}) {impact} likelihood",
+            "velocity_score": f"Activity velocity (score: {value:.0f}) {impact} likelihood",
+            "page_views_pricing": f"Pricing page views ({value:.0f}) {impact} likelihood",
+            "page_views_demo": f"Demo page views ({value:.0f}) {impact} likelihood",
+            "email_clicks": f"Email clicks ({value:.0f}) {impact} likelihood",
+            "form_submissions": f"Form submissions ({value:.0f}) {impact} likelihood",
+            "title_score": f"Job title seniority {impact} likelihood",
+            "industry_score": f"Industry fit {impact} likelihood",
+        }
+        return descriptions.get(name, f"{name} = {value:.1f} {impact} likelihood")
+
+    def _cache_score(self, email: str, probability: float, category: str) -> None:
+        cache_data = {
+            "probability": probability,
+            "category": category,
+            "scored_at": datetime.utcnow().isoformat(),
+        }
+        self.redis_client.setex(
+            f"lead_score:{email.lower()}",
+            3600,  # 1 hour TTL
+            json.dumps(cache_data),
+        )`,
+              },
+            ],
+          },
+          {
+            stepNumber: 4,
+            title: 'Workflow Orchestration',
+            description:
+              'Implement LangGraph state machine for the real-time lead scoring pipeline with sub-second latency targets and intelligent routing logic.',
+            toolsUsed: ['LangGraph', 'Redis', 'Kafka'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'LangGraph Lead Scoring Orchestrator',
+                description:
+                  'Real-time workflow orchestration for lead scoring with intelligent routing.',
+                code: `"""
+Lead Scoring — LangGraph Real-Time Orchestration
+Sequential workflow optimized for sub-second scoring latency.
+"""
+
+from typing import TypedDict, Annotated, Literal
+from datetime import datetime
+import operator
+import json
+import redis
+import asyncio
+
+from langgraph.graph import StateGraph, END
+from langchain_core.messages import BaseMessage
+
+
+class LeadScoringState(TypedDict):
+    """State for real-time lead scoring workflow."""
+    lead_email: str
+    signals: dict
+    firmographics: dict
+    score_result: dict
+    routing_decision: dict
+    notifications_sent: list
+    latency_ms: float
+    workflow_status: str
+
+
+class LeadScoringOrchestrator:
+    def __init__(
+        self,
+        signal_agent,
+        scorer_agent,
+        router_agent,
+        redis_url: str,
+    ):
+        self.signal_agent = signal_agent
+        self.scorer_agent = scorer_agent
+        self.router_agent = router_agent
+        self.redis = redis.from_url(redis_url)
+        self.graph = self._build_graph()
+
+    def _build_graph(self) -> StateGraph:
+        """Build the lead scoring workflow graph."""
+
+        async def collect_signals(state: LeadScoringState) -> dict:
+            """Collect engagement signals for the lead."""
+            start = datetime.utcnow()
+            try:
+                result = await self.signal_agent.ainvoke({
+                    "input": f"Collect all engagement signals for {state['lead_email']}",
+                    "lead_email": state["lead_email"],
+                })
+                return {
+                    "signals": result,
+                    "workflow_status": "signals_collected",
+                    "latency_ms": (datetime.utcnow() - start).total_seconds() * 1000,
+                }
+            except Exception as e:
+                return {"workflow_status": f"signal_error: {e}"}
+
+        async def score_lead(state: LeadScoringState) -> dict:
+            """Score the lead using ML model."""
+            start = datetime.utcnow()
+            try:
+                result = await self.scorer_agent.ainvoke({
+                    "input": "Score this lead with full explanation",
+                    "lead_email": state["lead_email"],
+                    "signals": state["signals"],
+                    "firmographics": state.get("firmographics", {}),
+                })
+                return {
+                    "score_result": result,
+                    "workflow_status": "scored",
+                    "latency_ms": state.get("latency_ms", 0) + (datetime.utcnow() - start).total_seconds() * 1000,
+                }
+            except Exception as e:
+                return {"workflow_status": f"scoring_error: {e}"}
+
+        async def route_lead(state: LeadScoringState) -> dict:
+            """Route the lead to the optimal rep."""
+            start = datetime.utcnow()
+            try:
+                score_result = state.get("score_result", {})
+                if score_result.get("category") in ["HOT", "WARM"]:
+                    result = await self.router_agent.ainvoke({
+                        "input": "Find the best available rep for this lead",
+                        "lead_email": state["lead_email"],
+                        "score": score_result.get("scores", {}),
+                        "category": score_result.get("category"),
+                        "firmographics": state.get("firmographics", {}),
+                    })
+                    return {
+                        "routing_decision": result,
+                        "workflow_status": "routed",
+                        "latency_ms": state.get("latency_ms", 0) + (datetime.utcnow() - start).total_seconds() * 1000,
+                    }
+                else:
+                    return {
+                        "routing_decision": {
+                            "action": "nurture",
+                            "sequence": "general_nurture_v2",
+                        },
+                        "workflow_status": "routed_to_nurture",
+                    }
+            except Exception as e:
+                return {"workflow_status": f"routing_error: {e}"}
+
+        async def send_notifications(state: LeadScoringState) -> dict:
+            """Send notifications based on routing decision."""
+            notifications = []
+            routing = state.get("routing_decision", {})
+            score = state.get("score_result", {})
+
+            if score.get("category") == "HOT":
+                # Send immediate Slack notification
+                notifications.append({
+                    "channel": "slack",
+                    "target": routing.get("assigned_rep_slack", "#hot-leads"),
+                    "sent_at": datetime.utcnow().isoformat(),
+                })
+
+            if routing.get("action") != "nurture":
+                # Update CRM
+                notifications.append({
+                    "channel": "crm_update",
+                    "lead_email": state["lead_email"],
+                    "sent_at": datetime.utcnow().isoformat(),
+                })
+
+            return {
+                "notifications_sent": notifications,
+                "workflow_status": "complete",
+            }
+
+        def should_route_to_rep(state: LeadScoringState) -> Literal["route", "nurture"]:
+            """Determine if lead should be routed to rep or nurture."""
+            category = state.get("score_result", {}).get("category", "COLD")
+            return "route" if category in ["HOT", "WARM"] else "nurture"
+
+        # Build graph
+        workflow = StateGraph(LeadScoringState)
+
+        workflow.add_node("collect_signals", collect_signals)
+        workflow.add_node("score", score_lead)
+        workflow.add_node("route", route_lead)
+        workflow.add_node("notify", send_notifications)
+
+        workflow.set_entry_point("collect_signals")
+        workflow.add_edge("collect_signals", "score")
+        workflow.add_conditional_edges(
+            "score",
+            should_route_to_rep,
+            {"route": "route", "nurture": "notify"},
+        )
+        workflow.add_edge("route", "notify")
+        workflow.add_edge("notify", END)
+
+        return workflow.compile()
+
+    async def score_lead(
+        self,
+        lead_email: str,
+        firmographics: dict = None,
+    ) -> dict:
+        """Score a lead end-to-end with latency tracking."""
+        start_time = datetime.utcnow()
+
+        result = await self.graph.ainvoke({
+            "lead_email": lead_email,
+            "signals": {},
+            "firmographics": firmographics or {},
+            "score_result": {},
+            "routing_decision": {},
+            "notifications_sent": [],
+            "latency_ms": 0,
+            "workflow_status": "started",
+        })
+
+        total_latency = (datetime.utcnow() - start_time).total_seconds() * 1000
+        result["total_latency_ms"] = total_latency
+
+        # Log latency for monitoring
+        self.redis.lpush(
+            "lead_scoring_latencies",
+            json.dumps({
+                "email": lead_email,
+                "latency_ms": total_latency,
+                "category": result.get("score_result", {}).get("category"),
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+        )
+        self.redis.ltrim("lead_scoring_latencies", 0, 9999)
+
+        return result`,
+              },
+            ],
+          },
+          {
+            stepNumber: 5,
+            title: 'Deployment & Observability',
+            description:
+              'Deploy the real-time scoring system with Docker, configure MLflow for model tracking, and set up comprehensive monitoring for latency and model performance.',
+            toolsUsed: ['Docker', 'MLflow', 'Prometheus', 'Grafana'],
+            codeSnippets: [
+              {
+                language: 'yaml',
+                title: 'Docker Compose for Lead Scoring System',
+                description:
+                  'Production deployment with real-time scoring API, ML model serving, and monitoring stack.',
+                code: `version: '3.8'
+
+services:
+  lead-scoring-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.scoring
+    container_name: lead-scoring-api
+    restart: unless-stopped
+    environment:
+      - OPENAI_API_KEY=\${OPENAI_API_KEY}
+      - HUBSPOT_API_KEY=\${HUBSPOT_API_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - MODEL_PATH=/models/lead_scorer.pkl
+      - MODEL_VERSION=\${MODEL_VERSION:-v1.0}
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - LOG_LEVEL=INFO
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+      - mlflow
+    volumes:
+      - ./models:/models:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+  redis:
+    image: redis:7-alpine
+    container_name: lead-scoring-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.9.0
+    container_name: lead-scoring-mlflow
+    restart: unless-stopped
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@postgres:5432/mlflow
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+    command: mlflow server --host 0.0.0.0 --port 5000
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: lead-scoring-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=\${POSTGRES_USER}
+      - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
+      - POSTGRES_DB=mlflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: lead-scoring-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: lead-scoring-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    ports:
+      - "3000:3000"
+
+volumes:
+  redis_data:
+  mlflow_artifacts:
+  postgres_data:
+  prometheus_data:
+  grafana_data:`,
+              },
+              {
+                language: 'python',
+                title: 'Real-Time Scoring API with Latency Monitoring',
+                description:
+                  'FastAPI service for real-time lead scoring with comprehensive metrics.',
+                code: `"""
+Lead Scoring API — Real-Time Inference with Monitoring
+"""
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from pydantic import BaseModel
+from prometheus_client import Counter, Histogram, Gauge, generate_latest
+from starlette.responses import Response
+from datetime import datetime
+import asyncio
+import os
+
+app = FastAPI(title="Real-Time Lead Scoring API")
+
+# Prometheus metrics
+SCORING_REQUESTS = Counter(
+    "lead_scoring_requests_total",
+    "Total scoring requests",
+    ["category", "status"],
+)
+SCORING_LATENCY = Histogram(
+    "lead_scoring_latency_seconds",
+    "Scoring latency in seconds",
+    buckets=[0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0],
+)
+MODEL_ACCURACY = Gauge(
+    "lead_scoring_model_accuracy",
+    "Model accuracy from last evaluation",
+)
+HOT_LEADS_ROUTED = Counter(
+    "lead_scoring_hot_leads_routed_total",
+    "Total hot leads routed to reps",
+)
+P95_LATENCY = Gauge(
+    "lead_scoring_p95_latency_seconds",
+    "95th percentile latency",
+)
+
+
+class ScoringRequest(BaseModel):
+    lead_email: str
+    firmographics: dict = {}
+    async_mode: bool = False
+
+
+class ScoringResponse(BaseModel):
+    lead_email: str
+    conversion_probability: float
+    category: str
+    urgency: str
+    explanation: dict
+    routing: dict
+    latency_ms: float
+
+
+@app.post("/score", response_model=ScoringResponse)
+async def score_lead(request: ScoringRequest, background_tasks: BackgroundTasks):
+    """Score a lead in real-time."""
+    start_time = datetime.utcnow()
+
+    try:
+        from orchestrator import LeadScoringOrchestrator
+        orchestrator = get_orchestrator()
+
+        if request.async_mode:
+            # Fire and forget for batch processing
+            background_tasks.add_task(
+                orchestrator.score_lead,
+                request.lead_email,
+                request.firmographics,
+            )
+            return ScoringResponse(
+                lead_email=request.lead_email,
+                conversion_probability=0,
+                category="PENDING",
+                urgency="ASYNC",
+                explanation={},
+                routing={"status": "queued"},
+                latency_ms=0,
+            )
+
+        result = await orchestrator.score_lead(
+            request.lead_email,
+            request.firmographics,
+        )
+
+        latency_seconds = (datetime.utcnow() - start_time).total_seconds()
+        category = result.get("score_result", {}).get("category", "UNKNOWN")
+
+        # Record metrics
+        SCORING_REQUESTS.labels(category=category, status="success").inc()
+        SCORING_LATENCY.observe(latency_seconds)
+
+        if category == "HOT":
+            HOT_LEADS_ROUTED.inc()
+
+        return ScoringResponse(
+            lead_email=request.lead_email,
+            conversion_probability=result.get("score_result", {}).get("scores", {}).get("conversion_probability", 0),
+            category=category,
+            urgency=result.get("score_result", {}).get("urgency", "UNKNOWN"),
+            explanation=result.get("score_result", {}).get("explanation", {}),
+            routing=result.get("routing_decision", {}),
+            latency_ms=latency_seconds * 1000,
+        )
+
+    except Exception as e:
+        latency_seconds = (datetime.utcnow() - start_time).total_seconds()
+        SCORING_REQUESTS.labels(category="ERROR", status="failed").inc()
+        SCORING_LATENCY.observe(latency_seconds)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "model_version": os.getenv("MODEL_VERSION")}
+
+
+@app.get("/metrics")
+async def metrics():
+    return Response(content=generate_latest(), media_type="text/plain")
+
+
+_orchestrator = None
+
+def get_orchestrator():
+    global _orchestrator
+    if _orchestrator is None:
+        from orchestrator import LeadScoringOrchestrator
+        from agents import create_scoring_agents
+        agents = create_scoring_agents()
+        _orchestrator = LeadScoringOrchestrator(
+            signal_agent=agents["signal"],
+            scorer_agent=agents["scorer"],
+            router_agent=agents["router"],
+            redis_url=os.getenv("REDIS_URL"),
+        )
+    return _orchestrator`,
               },
             ],
           },
@@ -2661,6 +5475,1555 @@ if __name__ == "__main__":
         send_slack_alerts(alerts)
     else:
         print("WhatsApp sync health checks passed.")`,
+              },
+            ],
+          },
+        ],
+      },
+      aiEasyWin: {
+        overview:
+          'Use ChatGPT/Claude with Zapier to capture WhatsApp conversations via WhatsApp Business API, extract deal signals, and sync key conversation summaries to your CRM without building custom middleware.',
+        estimatedMonthlyCost: '$150 - $250/month',
+        primaryTools: ['ChatGPT Plus ($20/mo)', 'Zapier Pro ($29.99/mo)', 'Twilio for WhatsApp ($0.005-0.05/msg)'],
+        alternativeTools: ['Claude Pro ($20/mo)', 'Make ($10.59/mo)', 'MessageBird', 'Gong AI (for call analysis)'],
+        steps: [
+          {
+            stepNumber: 1,
+            title: 'Data Extraction & Preparation',
+            description:
+              'Set up Twilio WhatsApp Business API sandbox or production account, configure webhook to capture all inbound and outbound messages, and route them to Zapier for processing.',
+            toolsUsed: ['Twilio', 'Zapier Webhooks', 'Google Sheets'],
+            codeSnippets: [
+              {
+                language: 'json',
+                title: 'Twilio WhatsApp Webhook to Zapier Configuration',
+                description:
+                  'Configures Twilio to send WhatsApp messages to Zapier webhook for AI processing and CRM sync.',
+                code: `{
+  "twilio_webhook_config": {
+    "account_sid": "{{env.TWILIO_ACCOUNT_SID}}",
+    "whatsapp_number": "+14155238886",
+    "webhook_url": "https://hooks.zapier.com/hooks/catch/{{zapier_webhook_id}}/",
+    "events": ["onMessageSent", "onMessageReceived"],
+    "method": "POST",
+    "content_type": "application/json"
+  },
+  "zapier_trigger": {
+    "type": "webhook",
+    "event": "catch_raw_hook",
+    "output_mapping": {
+      "message_sid": "{{trigger.MessageSid}}",
+      "from_number": "{{trigger.From}}",
+      "to_number": "{{trigger.To}}",
+      "body": "{{trigger.Body}}",
+      "direction": "{{#if trigger.From contains 'whatsapp:+1'}}outbound{{else}}inbound{{/if}}",
+      "timestamp": "{{trigger.DateCreated}}",
+      "media_url": "{{trigger.MediaUrl0}}",
+      "num_media": "{{trigger.NumMedia}}"
+    }
+  },
+  "storage_action": {
+    "app": "google_sheets",
+    "action": "create_spreadsheet_row",
+    "config": {
+      "spreadsheet_id": "{{env.WHATSAPP_LOG_SHEET_ID}}",
+      "worksheet": "Messages_Raw",
+      "row_data": {
+        "Message_SID": "{{trigger.message_sid}}",
+        "From": "{{trigger.from_number | replace('whatsapp:', '')}}",
+        "To": "{{trigger.to_number | replace('whatsapp:', '')}}",
+        "Direction": "{{trigger.direction}}",
+        "Body": "{{trigger.body}}",
+        "Timestamp": "{{trigger.timestamp}}",
+        "Has_Media": "{{#if trigger.num_media > 0}}Yes{{else}}No{{/if}}",
+        "Processed": "No",
+        "CRM_Contact_ID": "",
+        "Deal_Signals": ""
+      }
+    }
+  },
+  "contact_lookup": {
+    "app": "salesforce",
+    "action": "find_record",
+    "config": {
+      "object": "Contact",
+      "search_field": "Phone",
+      "search_value": "{{trigger.from_number | replace('whatsapp:', '') | replace('+', '')}}",
+      "fallback_search": {
+        "field": "MobilePhone",
+        "value": "{{trigger.from_number | replace('whatsapp:', '')}}"
+      }
+    }
+  }
+}`,
+              },
+            ],
+          },
+          {
+            stepNumber: 2,
+            title: 'AI-Powered Analysis',
+            description:
+              'Use ChatGPT or Claude to analyze WhatsApp conversations, extract deal signals (pricing discussions, objections, commitments), and generate concise summaries for CRM logging.',
+            toolsUsed: ['ChatGPT Plus', 'Claude Pro', 'Zapier AI Actions'],
+            codeSnippets: [
+              {
+                language: 'yaml',
+                title: 'WhatsApp Conversation Analysis Prompt Template',
+                description:
+                  'Structured prompt for AI to extract deal signals and generate CRM-ready summaries from WhatsApp conversations.',
+                code: `system_prompt: |
+  You are a Sales Intelligence AI that analyzes WhatsApp conversations between
+  sales reps and prospects. Your job is to extract actionable deal signals and
+  create concise summaries that help the sales team and preserve institutional
+  knowledge.
+
+  Key signals to detect:
+  - Pricing/budget discussions (amounts, discount requests, budget constraints)
+  - Timeline/urgency indicators (deadlines, "need this by", "asap")
+  - Competitor mentions (alternative vendors, "also looking at")
+  - Objections (concerns, pushback, hesitation)
+  - Commitment language ("let's proceed", "approved", "ready to go")
+  - Stakeholder mentions (decision-makers, approvals needed)
+  - Next steps agreed upon
+
+user_prompt_template: |
+  ## WhatsApp Conversation Analysis
+
+  **Contact Phone:** {{contact_phone}}
+  **CRM Contact:** {{crm_contact_name}} at {{crm_company}}
+  **Associated Deal:** {{deal_name}} (Stage: {{deal_stage}})
+  **Conversation Date Range:** {{first_message_date}} to {{last_message_date}}
+
+  ### Conversation Thread:
+  \`\`\`
+  {{conversation_thread}}
+  \`\`\`
+
+  ### Analysis Instructions:
+
+  1. **Extract Deal Signals:** Identify all buying signals and objections
+  2. **Detect Commitments:** Note any verbal agreements or next steps
+  3. **Flag Risks:** Identify competitor mentions, budget concerns, or delays
+  4. **Summarize for CRM:** Create a 2-3 sentence summary for the activity log
+  5. **Suggest Actions:** What should the rep do next based on this conversation?
+
+  ### Required Output Format:
+
+  \`\`\`json
+  {
+    "conversation_summary": "<2-3 sentence summary for CRM activity log>",
+    "sentiment": "<positive|neutral|negative|mixed>",
+    "deal_signals": [
+      {
+        "type": "<pricing|urgency|commitment|objection|competitor|stakeholder|next_step>",
+        "confidence": <0.0-1.0>,
+        "excerpt": "<exact quote from conversation>",
+        "implication": "<what this means for the deal>"
+      }
+    ],
+    "key_topics_discussed": ["<topic 1>", "<topic 2>"],
+    "commitments_made": [
+      {
+        "by": "<rep|prospect>",
+        "commitment": "<what was committed>",
+        "deadline": "<if mentioned>"
+      }
+    ],
+    "risks_identified": [
+      {
+        "type": "<competitor|budget|timeline|stakeholder|other>",
+        "description": "<description of risk>",
+        "severity": "<high|medium|low>"
+      }
+    ],
+    "recommended_actions": [
+      {
+        "action": "<specific action to take>",
+        "priority": "<high|medium|low>",
+        "timing": "<immediate|today|this_week>"
+      }
+    ],
+    "crm_update": {
+      "activity_subject": "<short subject line for CRM task>",
+      "activity_description": "<full description for CRM>",
+      "next_step_field": "<suggested update for Next Step field>",
+      "stage_recommendation": "<should deal stage change? which stage?>"
+    }
+  }
+  \`\`\`
+
+output_instructions: |
+  - Use exact quotes for excerpts when possible
+  - Be specific about next steps - don't just say "follow up"
+  - If pricing is mentioned, extract the exact amounts
+  - Flag any competitor mentions prominently
+  - Keep CRM summary concise but actionable`,
+              },
+            ],
+          },
+          {
+            stepNumber: 3,
+            title: 'Automation & Delivery',
+            description:
+              'Configure Zapier to process conversations in batches, sync summaries and signals to CRM as activities, and alert reps when hot signals are detected.',
+            toolsUsed: ['Zapier', 'Salesforce/HubSpot', 'Slack'],
+            codeSnippets: [
+              {
+                language: 'json',
+                title: 'Zapier WhatsApp-to-CRM Sync Workflow',
+                description:
+                  'Complete workflow that analyzes WhatsApp conversations with AI and syncs results to CRM with intelligent alerting.',
+                code: `{
+  "workflow_name": "WhatsApp Conversation Intelligence Sync",
+  "trigger": {
+    "app": "schedule",
+    "event": "every_15_minutes"
+  },
+  "steps": [
+    {
+      "step_number": 1,
+      "name": "Fetch Unprocessed Messages",
+      "app": "google_sheets",
+      "action": "find_rows",
+      "config": {
+        "spreadsheet_id": "{{env.WHATSAPP_LOG_SHEET_ID}}",
+        "worksheet": "Messages_Raw",
+        "filter": {
+          "Processed": "No"
+        },
+        "limit": 100
+      }
+    },
+    {
+      "step_number": 2,
+      "name": "Group Messages by Contact",
+      "app": "code",
+      "action": "run_javascript",
+      "config": {
+        "code": "const messages = inputData.rows; const grouped = {}; messages.forEach(m => { const key = m.From; if (!grouped[key]) grouped[key] = []; grouped[key].push(m); }); return Object.entries(grouped).map(([phone, msgs]) => ({ phone, messages: msgs.sort((a,b) => new Date(a.Timestamp) - new Date(b.Timestamp)), thread: msgs.map(m => m.Direction === 'inbound' ? '[Customer]: ' + m.Body : '[Rep]: ' + m.Body).join('\\n') }));"
+      }
+    },
+    {
+      "step_number": 3,
+      "name": "Lookup CRM Contact and Deal",
+      "app": "loop",
+      "action": "for_each",
+      "config": {
+        "items": "{{step2.grouped_conversations}}",
+        "sub_steps": [
+          {
+            "app": "salesforce",
+            "action": "find_record",
+            "config": {
+              "object": "Contact",
+              "soql": "SELECT Id, Name, AccountId, Account.Name, (SELECT Id, Name, StageName, Amount FROM Opportunities WHERE IsClosed = false LIMIT 1) FROM Contact WHERE Phone LIKE '%{{loop.item.phone | last_digits:10}}%' OR MobilePhone LIKE '%{{loop.item.phone | last_digits:10}}%' LIMIT 1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "step_number": 4,
+      "name": "AI Conversation Analysis",
+      "app": "loop",
+      "action": "for_each",
+      "config": {
+        "items": "{{step2.grouped_conversations}}",
+        "sub_steps": [
+          {
+            "app": "chatgpt",
+            "action": "conversation",
+            "config": {
+              "model": "gpt-4",
+              "system_message": "{{prompts.whatsapp_analysis.system}}",
+              "user_message": "{{prompts.whatsapp_analysis.user | replace_vars(loop.item, step3.contact_data)}}",
+              "max_tokens": 2500,
+              "temperature": 0.3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "step_number": 5,
+      "name": "Create CRM Activity",
+      "app": "loop",
+      "action": "for_each",
+      "config": {
+        "items": "{{step4.analysis_results}}",
+        "condition": "{{loop.item.crm_contact_id is not empty}}",
+        "sub_steps": [
+          {
+            "app": "salesforce",
+            "action": "create_record",
+            "config": {
+              "object": "Task",
+              "fields": {
+                "WhoId": "{{loop.item.crm_contact_id}}",
+                "WhatId": "{{loop.item.deal_id}}",
+                "Subject": "WhatsApp: {{loop.item.ai_analysis.crm_update.activity_subject}}",
+                "Description": "{{loop.item.ai_analysis.crm_update.activity_description}}\\n\\n---\\nDeal Signals: {{loop.item.ai_analysis.deal_signals | map:'type' | join:', '}}\\nSentiment: {{loop.item.ai_analysis.sentiment}}\\nMessages Analyzed: {{loop.item.message_count}}",
+                "Status": "Completed",
+                "Priority": "{{#if loop.item.ai_analysis.deal_signals contains 'commitment'}}High{{else}}Normal{{/if}}",
+                "ActivityDate": "{{today}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "step_number": 6,
+      "name": "Alert on Hot Signals",
+      "app": "filter",
+      "config": {
+        "condition": "{{step4.analysis_results | filter: 'has_hot_signal' | length > 0}}"
+      },
+      "sub_steps": [
+        {
+          "app": "slack",
+          "action": "send_channel_message",
+          "config": {
+            "channel": "#sales-whatsapp-intel",
+            "message_blocks": [
+              {
+                "type": "header",
+                "text": ":speech_balloon: WhatsApp Deal Signal Detected"
+              },
+              {
+                "type": "section",
+                "text": "*{{loop.item.crm_contact_name}}* at *{{loop.item.company}}*\\nDeal: {{loop.item.deal_name}} ({{loop.item.deal_stage}})"
+              },
+              {
+                "type": "section",
+                "text": "*Signals Detected:*\\n{{#each loop.item.ai_analysis.deal_signals}}:sparkles: *{{type}}*: \\"{{excerpt}}\\"\\n{{/each}}"
+              },
+              {
+                "type": "section",
+                "text": "*Recommended Action:*\\n{{loop.item.ai_analysis.recommended_actions[0].action}} ({{loop.item.ai_analysis.recommended_actions[0].timing}})"
+              },
+              {
+                "type": "actions",
+                "elements": [
+                  {
+                    "type": "button",
+                    "text": "View in CRM",
+                    "url": "{{env.CRM_BASE_URL}}/{{loop.item.deal_id}}"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 7,
+      "name": "Mark Messages as Processed",
+      "app": "google_sheets",
+      "action": "update_rows",
+      "config": {
+        "spreadsheet_id": "{{env.WHATSAPP_LOG_SHEET_ID}}",
+        "worksheet": "Messages_Raw",
+        "filter": {
+          "Message_SID": { "in": "{{step1.rows | map:'Message_SID'}}" }
+        },
+        "updates": {
+          "Processed": "Yes",
+          "Processed_At": "{{now}}",
+          "CRM_Activity_ID": "{{step5.created_activity_id}}"
+        }
+      }
+    }
+  ]
+}`,
+              },
+            ],
+          },
+        ],
+      },
+      aiAdvanced: {
+        overview:
+          'Deploy a multi-agent system that captures WhatsApp conversations in real-time, uses NLP to extract deal intelligence, auto-maps conversations to CRM records, and generates actionable insights for sales coaching.',
+        estimatedMonthlyCost: '$700 - $1,400/month',
+        architecture:
+          'A Supervisor agent orchestrates four specialists: MessageIngestion captures and stores messages via WhatsApp API, ConversationAnalyzer extracts deal signals using NLP, CRMMapper links conversations to contacts and opportunities, and InsightGenerator produces coaching reports and alerts.',
+        agents: [
+          {
+            name: 'MessageIngestionAgent',
+            role: 'WhatsApp Message Collector',
+            goal: 'Capture, validate, and persist all WhatsApp messages in real-time with proper contact matching and deduplication.',
+            tools: ['WhatsApp Business API', 'PostgreSQL', 'Redis Streams'],
+          },
+          {
+            name: 'ConversationAnalyzerAgent',
+            role: 'NLP Deal Signal Extractor',
+            goal: 'Analyze conversation text to extract pricing mentions, competitor references, objections, commitments, and sentiment.',
+            tools: ['spaCy', 'OpenAI GPT-4', 'Custom NER Models'],
+          },
+          {
+            name: 'CRMMapperAgent',
+            role: 'Contact and Opportunity Matcher',
+            goal: 'Accurately link WhatsApp contacts to CRM records using phone matching, fuzzy name matching, and company inference.',
+            tools: ['Salesforce API', 'HubSpot API', 'Fuzzy Matching'],
+          },
+          {
+            name: 'InsightGeneratorAgent',
+            role: 'Sales Intelligence Synthesizer',
+            goal: 'Aggregate conversation signals into deal health scores, rep coaching reports, and competitive intelligence summaries.',
+            tools: ['Analytics Engine', 'Report Generator', 'Slack API'],
+          },
+        ],
+        orchestration: {
+          framework: 'LangGraph',
+          pattern: 'Supervisor',
+          stateManagement: 'PostgreSQL for messages, Redis for real-time processing state, 90-day retention',
+        },
+        steps: [
+          {
+            stepNumber: 1,
+            title: 'Agent Architecture & Role Design',
+            description:
+              'Define the multi-agent system for WhatsApp conversation intelligence with CrewAI, establishing roles for message capture, NLP analysis, CRM integration, and insight generation.',
+            toolsUsed: ['CrewAI', 'LangChain', 'Python'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'WhatsApp Intelligence Agent Crew Definition',
+                description:
+                  'CrewAI configuration for the WhatsApp conversation intelligence system with four specialist agents.',
+                code: `"""
+WhatsApp Conversation Intelligence Multi-Agent System
+CrewAI-based agent definitions for real-time conversation capture and analysis.
+"""
+
+from crewai import Agent, Crew, Task, Process
+from langchain_openai import ChatOpenAI
+from typing import List, Dict, Any
+import os
+
+llm = ChatOpenAI(
+    model="gpt-4-turbo-preview",
+    temperature=0.2,
+    api_key=os.getenv("OPENAI_API_KEY"),
+)
+
+
+class WhatsAppIntelligenceAgents:
+    """Factory class for WhatsApp conversation intelligence agents."""
+
+    @staticmethod
+    def create_ingestion_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="WhatsApp Message Collector",
+            goal="""Capture and persist every WhatsApp message with full metadata:
+                1. Validate incoming webhook signatures for security
+                2. Deduplicate messages using message SID
+                3. Normalize phone numbers for consistent matching
+                4. Store messages with timestamps and direction
+                5. Queue messages for downstream processing""",
+            backstory="""You are a data integration engineer who built messaging
+                infrastructure at scale. You understand that every lost message is
+                lost institutional knowledge. You handle edge cases gracefully -
+                duplicate webhooks, missing fields, rate limits - and ensure
+                99.99% message capture reliability.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=10,
+        )
+
+    @staticmethod
+    def create_analyzer_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="Conversation NLP Analyst",
+            goal="""Extract actionable deal intelligence from conversations:
+                1. Identify pricing discussions and exact amounts mentioned
+                2. Detect competitor references and comparison language
+                3. Extract urgency indicators and timeline mentions
+                4. Recognize commitment language and verbal agreements
+                5. Assess overall sentiment and relationship health""",
+            backstory="""You are a conversational AI specialist who has analyzed
+                millions of sales conversations. You can read between the lines -
+                detecting hesitation, enthusiasm, and buying signals that others
+                miss. You understand that 'let me think about it' often means 'no'
+                while 'when can we start?' means 'close me now'.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=15,
+        )
+
+    @staticmethod
+    def create_crm_mapper_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="CRM Contact Matcher",
+            goal="""Accurately link WhatsApp contacts to CRM records:
+                1. Match phone numbers with normalization (country codes, formats)
+                2. Use fuzzy matching on names when phone match fails
+                3. Infer company from email domain or conversation context
+                4. Link conversations to relevant open opportunities
+                5. Create new contact records when no match exists""",
+            backstory="""You are a data quality expert who has cleaned CRM databases
+                for Fortune 500 sales teams. You know that phone formats vary wildly
+                across countries, that people use nicknames, and that company names
+                have many variations. You achieve 95%+ match accuracy while
+                minimizing false positives that would pollute CRM data.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=10,
+        )
+
+    @staticmethod
+    def create_insight_agent(tools: List[Any]) -> Agent:
+        return Agent(
+            role="Sales Intelligence Synthesizer",
+            goal="""Generate actionable insights from conversation patterns:
+                1. Calculate conversation health scores for each deal
+                2. Identify deals going cold based on response patterns
+                3. Surface competitive threats across the pipeline
+                4. Generate coaching reports on rep messaging patterns
+                5. Predict deals likely to close based on conversation signals""",
+            backstory="""You are a sales analytics leader who has driven 40%
+                improvement in win rates through conversation intelligence. You
+                see patterns across thousands of conversations that reveal what
+                winning looks like. You translate data into specific coaching
+                actions that change rep behavior.""",
+            tools=tools,
+            llm=llm,
+            verbose=True,
+            allow_delegation=False,
+            max_iter=15,
+        )
+
+
+def create_whatsapp_intelligence_crew(
+    ingestion_tools: List[Any],
+    analyzer_tools: List[Any],
+    mapper_tools: List[Any],
+    insight_tools: List[Any],
+) -> Crew:
+    """Create the WhatsApp conversation intelligence crew."""
+    factory = WhatsAppIntelligenceAgents()
+
+    ingestion_agent = factory.create_ingestion_agent(ingestion_tools)
+    analyzer_agent = factory.create_analyzer_agent(analyzer_tools)
+    crm_mapper = factory.create_crm_mapper_agent(mapper_tools)
+    insight_generator = factory.create_insight_agent(insight_tools)
+
+    return Crew(
+        agents=[ingestion_agent, analyzer_agent, crm_mapper, insight_generator],
+        process=Process.sequential,
+        verbose=True,
+        memory=True,
+        cache=True,
+        max_rpm=40,
+    )`,
+              },
+            ],
+          },
+          {
+            stepNumber: 2,
+            title: 'Data Ingestion Agent(s)',
+            description:
+              'Implement the Message Ingestion agent with tools to capture WhatsApp messages via webhook, validate signatures, and persist to the conversation store.',
+            toolsUsed: ['FastAPI', 'WhatsApp Business API', 'PostgreSQL', 'Redis'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'WhatsApp Message Ingestion Agent Tools',
+                description:
+                  'Tool implementations for secure message capture, deduplication, and storage.',
+                code: `"""
+WhatsApp Message Ingestion Agent — Tool Implementations
+Secure webhook handling, message normalization, and persistence.
+"""
+
+from langchain.tools import BaseTool
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+import hashlib
+import hmac
+import phonenumbers
+import asyncio
+import httpx
+import os
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import QueuePool
+
+
+class MessageIngestionInput(BaseModel):
+    webhook_payload: Dict[str, Any] = Field(description="Raw webhook payload from WhatsApp")
+    signature: str = Field(description="X-Hub-Signature-256 header value")
+
+
+class WhatsAppIngestionTool(BaseTool):
+    name: str = "ingest_whatsapp_message"
+    description: str = """Process incoming WhatsApp webhook, validate signature,
+        extract message data, and persist to database with deduplication."""
+    args_schema: type[BaseModel] = MessageIngestionInput
+
+    def __init__(self):
+        super().__init__()
+        self.app_secret = os.getenv("WHATSAPP_APP_SECRET")
+        self.db_engine = create_engine(
+            os.getenv("DATABASE_URL"),
+            poolclass=QueuePool,
+            pool_size=10,
+        )
+
+    def _run(
+        self,
+        webhook_payload: Dict[str, Any],
+        signature: str,
+    ) -> Dict[str, Any]:
+        # 1. Validate webhook signature
+        if not self._verify_signature(webhook_payload, signature):
+            return {"status": "error", "reason": "Invalid signature"}
+
+        # 2. Extract messages from payload
+        messages = self._extract_messages(webhook_payload)
+        if not messages:
+            return {"status": "ok", "messages_processed": 0}
+
+        # 3. Process and store each message
+        results = []
+        for msg in messages:
+            result = self._process_message(msg)
+            results.append(result)
+
+        return {
+            "status": "ok",
+            "messages_processed": len(results),
+            "messages": results,
+        }
+
+    def _verify_signature(self, payload: Dict, signature: str) -> bool:
+        import json
+        payload_bytes = json.dumps(payload, separators=(",", ":")).encode()
+        expected = hmac.new(
+            self.app_secret.encode(),
+            payload_bytes,
+            hashlib.sha256,
+        ).hexdigest()
+        return hmac.compare_digest(f"sha256={expected}", signature)
+
+    def _extract_messages(self, payload: Dict) -> List[Dict]:
+        messages = []
+        for entry in payload.get("entry", []):
+            for change in entry.get("changes", []):
+                value = change.get("value", {})
+                for msg in value.get("messages", []):
+                    messages.append({
+                        "message_id": msg["id"],
+                        "from_phone": msg["from"],
+                        "timestamp": msg["timestamp"],
+                        "type": msg["type"],
+                        "text": msg.get("text", {}).get("body", ""),
+                        "direction": "inbound",
+                    })
+                # Also capture status updates for outbound tracking
+                for status in value.get("statuses", []):
+                    if status.get("status") == "sent":
+                        messages.append({
+                            "message_id": status["id"],
+                            "to_phone": status["recipient_id"],
+                            "timestamp": status["timestamp"],
+                            "direction": "outbound",
+                            "status": status["status"],
+                        })
+        return messages
+
+    def _normalize_phone(self, phone: str) -> str:
+        """Normalize phone number to E.164 format."""
+        try:
+            parsed = phonenumbers.parse(phone, None)
+            return phonenumbers.format_number(
+                parsed, phonenumbers.PhoneNumberFormat.E164
+            )
+        except Exception:
+            # Fallback: strip non-digits
+            return "+" + "".join(c for c in phone if c.isdigit())
+
+    def _process_message(self, msg: Dict) -> Dict:
+        phone_field = "from_phone" if msg["direction"] == "inbound" else "to_phone"
+        normalized_phone = self._normalize_phone(msg.get(phone_field, ""))
+
+        message_record = {
+            "message_id": msg["message_id"],
+            "phone_normalized": normalized_phone,
+            "direction": msg["direction"],
+            "body": msg.get("text", ""),
+            "message_type": msg.get("type", "text"),
+            "received_at": datetime.fromtimestamp(int(msg["timestamp"])),
+            "processed_at": datetime.utcnow(),
+        }
+
+        # Insert with deduplication
+        with self.db_engine.connect() as conn:
+            result = conn.execute(
+                text(\"\"\"
+                    INSERT INTO whatsapp_messages
+                    (message_id, phone_normalized, direction, body, message_type, received_at, processed_at)
+                    VALUES (:message_id, :phone_normalized, :direction, :body, :message_type, :received_at, :processed_at)
+                    ON CONFLICT (message_id) DO NOTHING
+                    RETURNING id, message_id
+                \"\"\"),
+                message_record,
+            )
+            conn.commit()
+            inserted = result.fetchone()
+
+        return {
+            "message_id": msg["message_id"],
+            "phone": normalized_phone,
+            "direction": msg["direction"],
+            "stored": inserted is not None,
+            "db_id": inserted[0] if inserted else None,
+        }
+
+
+class PhoneContactMatchInput(BaseModel):
+    phone_normalized: str = Field(description="E.164 formatted phone number")
+
+
+class CRMContactMatchTool(BaseTool):
+    name: str = "match_crm_contact"
+    description: str = """Find CRM contact matching a phone number.
+        Uses exact match first, then fuzzy matching on name."""
+    args_schema: type[BaseModel] = PhoneContactMatchInput
+
+    def __init__(self):
+        super().__init__()
+        self.crm_api_url = os.getenv("CRM_API_URL")
+        self.crm_api_key = os.getenv("CRM_API_KEY")
+
+    def _run(self, phone_normalized: str) -> Dict[str, Any]:
+        # Try multiple phone formats
+        phone_variants = self._generate_phone_variants(phone_normalized)
+
+        with httpx.Client(timeout=30) as client:
+            for variant in phone_variants:
+                response = client.get(
+                    f"{self.crm_api_url}/contacts/search",
+                    params={"phone": variant},
+                    headers={"Authorization": f"Bearer {self.crm_api_key}"},
+                )
+                if response.status_code == 200:
+                    results = response.json().get("results", [])
+                    if results:
+                        contact = results[0]
+                        # Fetch associated opportunities
+                        opps = self._fetch_opportunities(client, contact["id"])
+                        return {
+                            "matched": True,
+                            "match_type": "phone_exact",
+                            "contact_id": contact["id"],
+                            "contact_name": contact.get("name", ""),
+                            "company": contact.get("company", ""),
+                            "opportunities": opps,
+                        }
+
+        return {
+            "matched": False,
+            "match_type": None,
+            "contact_id": None,
+            "phone_searched": phone_normalized,
+        }
+
+    def _generate_phone_variants(self, phone: str) -> List[str]:
+        """Generate common phone format variations."""
+        digits = "".join(c for c in phone if c.isdigit())
+        return [
+            phone,  # Original E.164
+            digits,  # Just digits
+            digits[-10:],  # Last 10 digits (US format)
+            f"+{digits}",  # With plus
+            f"({digits[:3]}) {digits[3:6]}-{digits[6:10]}" if len(digits) >= 10 else digits,
+        ]
+
+    def _fetch_opportunities(
+        self, client: httpx.Client, contact_id: str
+    ) -> List[Dict]:
+        response = client.get(
+            f"{self.crm_api_url}/contacts/{contact_id}/opportunities",
+            params={"status": "open"},
+            headers={"Authorization": f"Bearer {self.crm_api_key}"},
+        )
+        if response.status_code == 200:
+            return response.json().get("results", [])[:5]
+        return []`,
+              },
+            ],
+          },
+          {
+            stepNumber: 3,
+            title: 'Analysis & Decision Agent(s)',
+            description:
+              'Implement the Conversation Analyzer agent with NLP tools to extract deal signals, sentiment, and actionable insights from message content.',
+            toolsUsed: ['spaCy', 'OpenAI GPT-4', 'Custom NER', 'Sentiment Analysis'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'Conversation NLP Analysis Tools',
+                description:
+                  'Tools for extracting deal signals, sentiment, and conversation intelligence using NLP.',
+                code: `"""
+Conversation Analyzer Agent — NLP Analysis Tools
+Extract deal signals, sentiment, and actionable insights.
+"""
+
+from langchain.tools import BaseTool
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+import re
+import spacy
+from openai import OpenAI
+import os
+
+
+class ConversationAnalysisInput(BaseModel):
+    conversation_thread: List[Dict[str, Any]] = Field(
+        description="List of messages in chronological order"
+    )
+    contact_context: Dict[str, Any] = Field(
+        default={},
+        description="CRM context: contact name, company, deal info",
+    )
+
+
+class DealSignalExtractorTool(BaseTool):
+    name: str = "extract_deal_signals"
+    description: str = """Analyze conversation to extract deal signals:
+        pricing mentions, competitor references, urgency, commitments, objections."""
+    args_schema: type[BaseModel] = ConversationAnalysisInput
+
+    def __init__(self):
+        super().__init__()
+        self.nlp = spacy.load("en_core_web_sm")
+        self.openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self._init_patterns()
+
+    def _init_patterns(self):
+        self.patterns = {
+            "pricing": [
+                r"\\$[\\d,]+(?:\\.\\d{2})?",
+                r"\\b\\d+(?:\\.\\d+)?\\s*[kK]\\b",
+                r"(?:price|cost|budget|quote|proposal|discount|offer|rate)\\w*",
+                r"(?:per\\s+(?:month|year|seat|user|license))",
+            ],
+            "urgency": [
+                r"\\b(?:asap|urgent|immediately|right away)\\b",
+                r"\\b(?:deadline|by\\s+(?:monday|tuesday|wednesday|thursday|friday|tomorrow))\\b",
+                r"\\b(?:end\\s+of\\s+(?:week|month|quarter|year))\\b",
+                r"\\b(?:running\\s+out|time\\s+sensitive|cannot\\s+wait)\\b",
+            ],
+            "commitment": [
+                r"\\b(?:let'?s\\s+(?:go\\s+ahead|proceed|do\\s+it|move\\s+forward|sign))\\b",
+                r"\\b(?:approved|greenlight|ready\\s+to\\s+start|confirmed|deal)\\b",
+                r"\\b(?:send\\s+(?:the\\s+)?(?:contract|agreement|paperwork))\\b",
+            ],
+            "objection": [
+                r"\\b(?:too\\s+expensive|over\\s+budget|can'?t\\s+afford)\\b",
+                r"\\b(?:not\\s+(?:sure|ready|convinced)|need\\s+to\\s+think)\\b",
+                r"\\b(?:talk\\s+to\\s+(?:my\\s+)?(?:boss|team|manager|cfo))\\b",
+                r"\\b(?:competitor|alternative|other\\s+(?:option|vendor))\\b",
+            ],
+            "next_step": [
+                r"\\b(?:schedule|book|set\\s+up)\\s+(?:a\\s+)?(?:call|meeting|demo)\\b",
+                r"\\b(?:send\\s+(?:me|over|through))\\b",
+                r"\\b(?:follow\\s+up|get\\s+back|touch\\s+base)\\b",
+            ],
+        }
+
+    def _run(
+        self,
+        conversation_thread: List[Dict[str, Any]],
+        contact_context: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        contact_context = contact_context or {}
+
+        # Combine all messages into analyzable text
+        full_text = "\\n".join(
+            f"[{m.get('direction', 'unknown').upper()}] {m.get('body', '')}"
+            for m in conversation_thread
+        )
+
+        # Extract pattern-based signals
+        signals = []
+        for signal_type, patterns in self.patterns.items():
+            for pattern in patterns:
+                matches = re.findall(pattern, full_text.lower())
+                for match in matches:
+                    signals.append({
+                        "type": signal_type,
+                        "pattern_match": match,
+                        "confidence": 0.85,
+                    })
+
+        # Use spaCy for entity extraction
+        doc = self.nlp(full_text)
+        for ent in doc.ents:
+            if ent.label_ == "MONEY":
+                signals.append({
+                    "type": "pricing",
+                    "entity": ent.text,
+                    "confidence": 0.90,
+                })
+            elif ent.label_ == "DATE":
+                signals.append({
+                    "type": "timeline",
+                    "entity": ent.text,
+                    "confidence": 0.75,
+                })
+            elif ent.label_ == "ORG":
+                # Could be competitor mention
+                if ent.text.lower() not in contact_context.get("company", "").lower():
+                    signals.append({
+                        "type": "org_mention",
+                        "entity": ent.text,
+                        "confidence": 0.60,
+                    })
+
+        # Use GPT-4 for deeper analysis
+        gpt_analysis = self._gpt_analyze(full_text, contact_context)
+
+        # Deduplicate and merge signals
+        final_signals = self._merge_signals(signals, gpt_analysis.get("signals", []))
+
+        return {
+            "signal_count": len(final_signals),
+            "signals": final_signals,
+            "sentiment": gpt_analysis.get("sentiment", "neutral"),
+            "summary": gpt_analysis.get("summary", ""),
+            "recommended_actions": gpt_analysis.get("actions", []),
+            "conversation_health": self._calculate_health_score(final_signals),
+        }
+
+    def _gpt_analyze(
+        self, conversation: str, context: Dict
+    ) -> Dict[str, Any]:
+        prompt = f\"\"\"Analyze this sales conversation and extract:
+1. Deal signals (pricing, urgency, commitment, objection)
+2. Overall sentiment (positive/neutral/negative)
+3. Key summary (2-3 sentences)
+4. Recommended next actions
+
+Context:
+- Contact: {context.get('contact_name', 'Unknown')}
+- Company: {context.get('company', 'Unknown')}
+- Deal: {context.get('deal_name', 'Unknown')} ({context.get('deal_stage', 'Unknown')})
+
+Conversation:
+{conversation[:3000]}
+
+Return JSON format:
+{{
+  "signals": [{{"type": "...", "excerpt": "...", "confidence": 0.0-1.0}}],
+  "sentiment": "positive|neutral|negative",
+  "summary": "...",
+  "actions": [{{"action": "...", "priority": "high|medium|low"}}]
+}}\"\"\"
+
+        response = self.openai.chat.completions.create(
+            model="gpt-4-turbo-preview",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000,
+            temperature=0.3,
+            response_format={"type": "json_object"},
+        )
+
+        import json
+        return json.loads(response.choices[0].message.content)
+
+    def _merge_signals(
+        self,
+        pattern_signals: List[Dict],
+        gpt_signals: List[Dict],
+    ) -> List[Dict]:
+        merged = {}
+        for sig in pattern_signals + gpt_signals:
+            key = f"{sig['type']}:{sig.get('excerpt', sig.get('pattern_match', sig.get('entity', '')))[:50]}"
+            if key not in merged or sig.get("confidence", 0) > merged[key].get("confidence", 0):
+                merged[key] = sig
+        return list(merged.values())
+
+    def _calculate_health_score(self, signals: List[Dict]) -> Dict[str, Any]:
+        score = 50  # Baseline
+
+        for sig in signals:
+            if sig["type"] == "commitment":
+                score += 15
+            elif sig["type"] == "urgency":
+                score += 10
+            elif sig["type"] == "pricing":
+                score += 5
+            elif sig["type"] == "objection":
+                score -= 10
+            elif sig["type"] == "competitor":
+                score -= 15
+
+        score = max(0, min(100, score))
+
+        if score >= 70:
+            status = "healthy"
+        elif score >= 40:
+            status = "needs_attention"
+        else:
+            status = "at_risk"
+
+        return {
+            "score": score,
+            "status": status,
+        }`,
+              },
+            ],
+          },
+          {
+            stepNumber: 4,
+            title: 'Workflow Orchestration',
+            description:
+              'Implement LangGraph state machine to orchestrate the WhatsApp intelligence pipeline from message ingestion through CRM sync and alerting.',
+            toolsUsed: ['LangGraph', 'Redis', 'PostgreSQL'],
+            codeSnippets: [
+              {
+                language: 'python',
+                title: 'LangGraph WhatsApp Intelligence Orchestrator',
+                description:
+                  'State machine for the WhatsApp conversation intelligence workflow.',
+                code: `"""
+WhatsApp Intelligence — LangGraph Orchestration
+Real-time message processing with conversation aggregation.
+"""
+
+from typing import TypedDict, Annotated, Literal, List
+from datetime import datetime, timedelta
+import operator
+import json
+
+from langgraph.graph import StateGraph, END
+from langchain_core.messages import BaseMessage
+import redis
+
+
+class WhatsAppIntelState(TypedDict):
+    """State for WhatsApp intelligence workflow."""
+    messages_to_process: List[dict]
+    processed_messages: List[dict]
+    contact_matches: dict
+    conversation_analyses: List[dict]
+    crm_updates: List[dict]
+    alerts_generated: List[dict]
+    workflow_status: str
+
+
+class WhatsAppIntelOrchestrator:
+    def __init__(
+        self,
+        ingestion_agent,
+        analyzer_agent,
+        mapper_agent,
+        insight_agent,
+        redis_url: str,
+    ):
+        self.ingestion_agent = ingestion_agent
+        self.analyzer_agent = analyzer_agent
+        self.mapper_agent = mapper_agent
+        self.insight_agent = insight_agent
+        self.redis = redis.from_url(redis_url)
+        self.graph = self._build_graph()
+
+    def _build_graph(self) -> StateGraph:
+
+        async def process_messages(state: WhatsAppIntelState) -> dict:
+            """Process incoming messages through ingestion agent."""
+            processed = []
+            for msg in state.get("messages_to_process", []):
+                result = await self.ingestion_agent.ainvoke({
+                    "input": "Process and store this WhatsApp message",
+                    "message": msg,
+                })
+                processed.append(result)
+
+            return {
+                "processed_messages": processed,
+                "workflow_status": "messages_processed",
+            }
+
+        async def match_contacts(state: WhatsAppIntelState) -> dict:
+            """Match messages to CRM contacts."""
+            matches = {}
+            unique_phones = set(
+                m.get("phone_normalized")
+                for m in state.get("processed_messages", [])
+                if m.get("phone_normalized")
+            )
+
+            for phone in unique_phones:
+                result = await self.mapper_agent.ainvoke({
+                    "input": f"Find CRM contact for phone {phone}",
+                    "phone": phone,
+                })
+                matches[phone] = result
+
+            return {
+                "contact_matches": matches,
+                "workflow_status": "contacts_matched",
+            }
+
+        async def aggregate_conversations(state: WhatsAppIntelState) -> dict:
+            """Group messages into conversation threads for analysis."""
+            # Group by contact
+            conversations = {}
+            for msg in state.get("processed_messages", []):
+                phone = msg.get("phone_normalized")
+                if phone:
+                    if phone not in conversations:
+                        conversations[phone] = {
+                            "phone": phone,
+                            "contact": state.get("contact_matches", {}).get(phone, {}),
+                            "messages": [],
+                        }
+                    conversations[phone]["messages"].append(msg)
+
+            # Only analyze conversations with 3+ messages
+            for phone, conv in conversations.items():
+                conv["messages"].sort(key=lambda x: x.get("received_at", ""))
+
+            return {
+                "conversations": [
+                    c for c in conversations.values()
+                    if len(c["messages"]) >= 3
+                ],
+                "workflow_status": "conversations_aggregated",
+            }
+
+        async def analyze_conversations(state: WhatsAppIntelState) -> dict:
+            """Run NLP analysis on conversation threads."""
+            analyses = []
+            for conv in state.get("conversations", []):
+                if not conv.get("contact", {}).get("matched"):
+                    continue
+
+                result = await self.analyzer_agent.ainvoke({
+                    "input": "Analyze this conversation for deal signals",
+                    "conversation_thread": conv["messages"],
+                    "contact_context": conv["contact"],
+                })
+                analyses.append({
+                    "phone": conv["phone"],
+                    "contact_id": conv["contact"].get("contact_id"),
+                    "analysis": result,
+                })
+
+            return {
+                "conversation_analyses": analyses,
+                "workflow_status": "analysis_complete",
+            }
+
+        async def generate_crm_updates(state: WhatsAppIntelState) -> dict:
+            """Create CRM activity records from analyses."""
+            updates = []
+            for analysis in state.get("conversation_analyses", []):
+                if analysis.get("analysis", {}).get("signal_count", 0) > 0:
+                    update = {
+                        "contact_id": analysis["contact_id"],
+                        "activity_type": "WhatsApp Conversation",
+                        "subject": f"WhatsApp: {len(analysis['analysis'].get('signals', []))} deal signals detected",
+                        "description": analysis["analysis"].get("summary", ""),
+                        "signals": analysis["analysis"].get("signals", []),
+                        "health_score": analysis["analysis"].get("conversation_health", {}),
+                    }
+                    updates.append(update)
+
+            return {
+                "crm_updates": updates,
+                "workflow_status": "crm_updates_prepared",
+            }
+
+        async def generate_alerts(state: WhatsAppIntelState) -> dict:
+            """Generate alerts for high-priority signals."""
+            alerts = []
+            for analysis in state.get("conversation_analyses", []):
+                signals = analysis.get("analysis", {}).get("signals", [])
+
+                # Alert on commitment signals
+                commitment_signals = [s for s in signals if s.get("type") == "commitment"]
+                if commitment_signals:
+                    alerts.append({
+                        "type": "commitment_detected",
+                        "priority": "high",
+                        "contact_id": analysis["contact_id"],
+                        "message": f"Commitment language detected: {commitment_signals[0].get('excerpt', '')}",
+                    })
+
+                # Alert on competitor mentions
+                competitor_signals = [s for s in signals if s.get("type") == "competitor"]
+                if competitor_signals:
+                    alerts.append({
+                        "type": "competitor_mention",
+                        "priority": "high",
+                        "contact_id": analysis["contact_id"],
+                        "message": f"Competitor mentioned: {competitor_signals[0].get('excerpt', '')}",
+                    })
+
+                # Alert on deals going cold
+                health = analysis.get("analysis", {}).get("conversation_health", {})
+                if health.get("status") == "at_risk":
+                    alerts.append({
+                        "type": "deal_at_risk",
+                        "priority": "medium",
+                        "contact_id": analysis["contact_id"],
+                        "message": f"Conversation health score dropped to {health.get('score')}",
+                    })
+
+            return {
+                "alerts_generated": alerts,
+                "workflow_status": "complete",
+            }
+
+        def should_analyze(state: WhatsAppIntelState) -> Literal["analyze", "skip"]:
+            """Only analyze if we have matched contacts."""
+            matches = state.get("contact_matches", {})
+            has_matches = any(m.get("matched") for m in matches.values())
+            return "analyze" if has_matches else "skip"
+
+        # Build graph
+        workflow = StateGraph(WhatsAppIntelState)
+
+        workflow.add_node("process_messages", process_messages)
+        workflow.add_node("match_contacts", match_contacts)
+        workflow.add_node("aggregate", aggregate_conversations)
+        workflow.add_node("analyze", analyze_conversations)
+        workflow.add_node("crm_updates", generate_crm_updates)
+        workflow.add_node("alerts", generate_alerts)
+
+        workflow.set_entry_point("process_messages")
+        workflow.add_edge("process_messages", "match_contacts")
+        workflow.add_edge("match_contacts", "aggregate")
+        workflow.add_conditional_edges(
+            "aggregate",
+            should_analyze,
+            {"analyze": "analyze", "skip": END},
+        )
+        workflow.add_edge("analyze", "crm_updates")
+        workflow.add_edge("crm_updates", "alerts")
+        workflow.add_edge("alerts", END)
+
+        return workflow.compile()
+
+    async def process_batch(
+        self, messages: List[dict]
+    ) -> dict:
+        """Process a batch of WhatsApp messages."""
+        result = await self.graph.ainvoke({
+            "messages_to_process": messages,
+            "processed_messages": [],
+            "contact_matches": {},
+            "conversation_analyses": [],
+            "crm_updates": [],
+            "alerts_generated": [],
+            "workflow_status": "started",
+        })
+        return result`,
+              },
+            ],
+          },
+          {
+            stepNumber: 5,
+            title: 'Deployment & Observability',
+            description:
+              'Deploy the WhatsApp intelligence system with Docker, configure webhooks, and set up monitoring for message processing and CRM sync health.',
+            toolsUsed: ['Docker', 'Prometheus', 'Grafana', 'PostgreSQL'],
+            codeSnippets: [
+              {
+                language: 'yaml',
+                title: 'Docker Compose for WhatsApp Intelligence System',
+                description:
+                  'Production deployment with webhook receiver, message processor, and monitoring.',
+                code: `version: '3.8'
+
+services:
+  whatsapp-webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile.webhook
+    container_name: whatsapp-webhook
+    restart: unless-stopped
+    environment:
+      - WHATSAPP_APP_SECRET=\${WHATSAPP_APP_SECRET}
+      - WHATSAPP_VERIFY_TOKEN=\${WHATSAPP_VERIFY_TOKEN}
+      - DATABASE_URL=postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@postgres:5432/whatsapp
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=INFO
+    ports:
+      - "8443:8443"
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8443/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  message-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile.processor
+    container_name: whatsapp-processor
+    restart: unless-stopped
+    environment:
+      - OPENAI_API_KEY=\${OPENAI_API_KEY}
+      - CRM_API_KEY=\${CRM_API_KEY}
+      - CRM_API_URL=\${CRM_API_URL}
+      - DATABASE_URL=postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@postgres:5432/whatsapp
+      - REDIS_URL=redis://redis:6379/0
+      - SLACK_WEBHOOK_URL=\${SLACK_WEBHOOK_URL}
+      - BATCH_SIZE=50
+      - PROCESS_INTERVAL_SECONDS=30
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./models:/app/models:ro
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: whatsapp-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=\${POSTGRES_USER}
+      - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
+      - POSTGRES_DB=whatsapp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: whatsapp-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: whatsapp-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: whatsapp-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:`,
+              },
+              {
+                language: 'python',
+                title: 'WhatsApp Intelligence API with Metrics',
+                description:
+                  'FastAPI service for webhook handling and message processing with Prometheus metrics.',
+                code: `"""
+WhatsApp Intelligence API — Webhook Handler with Monitoring
+"""
+
+from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
+from prometheus_client import Counter, Histogram, Gauge, generate_latest
+from starlette.responses import Response
+from datetime import datetime
+import hashlib
+import hmac
+import os
+
+app = FastAPI(title="WhatsApp Intelligence Service")
+
+# Prometheus metrics
+MESSAGES_RECEIVED = Counter(
+    "whatsapp_messages_received_total",
+    "Total messages received",
+    ["direction"],
+)
+MESSAGES_PROCESSED = Counter(
+    "whatsapp_messages_processed_total",
+    "Total messages processed",
+    ["status"],
+)
+PROCESSING_LATENCY = Histogram(
+    "whatsapp_processing_latency_seconds",
+    "Message processing latency",
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0],
+)
+CRM_MATCHES = Counter(
+    "whatsapp_crm_matches_total",
+    "CRM contact matches",
+    ["match_type"],
+)
+SIGNALS_DETECTED = Counter(
+    "whatsapp_signals_detected_total",
+    "Deal signals detected",
+    ["signal_type"],
+)
+ALERTS_SENT = Counter(
+    "whatsapp_alerts_sent_total",
+    "Alerts sent",
+    ["alert_type"],
+)
+PENDING_MESSAGES = Gauge(
+    "whatsapp_pending_messages",
+    "Messages pending processing",
+)
+
+
+@app.get("/webhook")
+async def verify_webhook(
+    mode: str = "",
+    token: str = "",
+    challenge: str = "",
+):
+    """WhatsApp webhook verification endpoint."""
+    verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN")
+    if mode == "subscribe" and token == verify_token:
+        return int(challenge)
+    raise HTTPException(status_code=403, detail="Verification failed")
+
+
+@app.post("/webhook")
+async def receive_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+):
+    """Receive and queue WhatsApp messages."""
+    body = await request.body()
+    signature = request.headers.get("x-hub-signature-256", "")
+
+    if not verify_signature(body, signature):
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    data = await request.json()
+
+    # Extract and queue messages
+    messages = extract_messages(data)
+    for msg in messages:
+        MESSAGES_RECEIVED.labels(direction=msg.get("direction", "unknown")).inc()
+
+    # Process in background
+    background_tasks.add_task(process_messages_batch, messages)
+
+    return {"status": "ok", "messages_queued": len(messages)}
+
+
+def verify_signature(payload: bytes, signature: str) -> bool:
+    app_secret = os.getenv("WHATSAPP_APP_SECRET", "")
+    expected = hmac.new(
+        app_secret.encode(),
+        payload,
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(f"sha256={expected}", signature)
+
+
+def extract_messages(data: dict) -> list:
+    messages = []
+    for entry in data.get("entry", []):
+        for change in entry.get("changes", []):
+            value = change.get("value", {})
+            for msg in value.get("messages", []):
+                messages.append({
+                    "message_id": msg["id"],
+                    "from_phone": msg["from"],
+                    "body": msg.get("text", {}).get("body", ""),
+                    "timestamp": msg["timestamp"],
+                    "direction": "inbound",
+                })
+    return messages
+
+
+async def process_messages_batch(messages: list):
+    """Background task to process messages."""
+    from orchestrator import WhatsAppIntelOrchestrator
+
+    start_time = datetime.utcnow()
+    orchestrator = get_orchestrator()
+
+    try:
+        result = await orchestrator.process_batch(messages)
+
+        # Record metrics
+        MESSAGES_PROCESSED.labels(status="success").inc(len(messages))
+        PROCESSING_LATENCY.observe(
+            (datetime.utcnow() - start_time).total_seconds()
+        )
+
+        # Record signal metrics
+        for analysis in result.get("conversation_analyses", []):
+            for signal in analysis.get("analysis", {}).get("signals", []):
+                SIGNALS_DETECTED.labels(signal_type=signal.get("type", "unknown")).inc()
+
+        # Record alert metrics
+        for alert in result.get("alerts_generated", []):
+            ALERTS_SENT.labels(alert_type=alert.get("type", "unknown")).inc()
+
+    except Exception as e:
+        MESSAGES_PROCESSED.labels(status="failed").inc(len(messages))
+        raise
+
+
+_orchestrator = None
+
+def get_orchestrator():
+    global _orchestrator
+    if _orchestrator is None:
+        from orchestrator import WhatsAppIntelOrchestrator
+        from agents import create_whatsapp_agents
+        agents = create_whatsapp_agents()
+        _orchestrator = WhatsAppIntelOrchestrator(
+            ingestion_agent=agents["ingestion"],
+            analyzer_agent=agents["analyzer"],
+            mapper_agent=agents["mapper"],
+            insight_agent=agents["insight"],
+            redis_url=os.getenv("REDIS_URL"),
+        )
+    return _orchestrator
+
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
+
+@app.get("/metrics")
+async def metrics():
+    return Response(content=generate_latest(), media_type="text/plain")`,
               },
             ],
           },

@@ -31,3 +31,5 @@ export const ACCENT_STYLES: Record<
 export const SEVERITY_LEVELS = ['low', 'medium', 'high', 'critical'] as const;
 
 export const VALID_LANGUAGES = ['sql', 'python', 'bash'] as const;
+
+export const VALID_AI_LANGUAGES = ['python', 'yaml', 'json'] as const;

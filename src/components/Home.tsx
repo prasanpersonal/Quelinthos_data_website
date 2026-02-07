@@ -9,9 +9,13 @@ const Home = () => {
     });
 
     const scrollY = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
-    const opacity = useTransform(scrollY, [0, 0.4], [1, 0]);
-    const scale = useTransform(scrollY, [0, 0.4], [1, 0.8]);
-    const y = useTransform(scrollY, [0, 0.4], [0, 150]);
+    // Warp Speed Effect: Scale UP significantly to fly through the content
+    const scale = useTransform(scrollY, [0, 0.5], [1, 15]);
+    const opacity = useTransform(scrollY, [0, 0.2], [1, 0]); // Fade content out quickly
+    const y = useTransform(scrollY, [0, 0.5], [0, 0]); // Keep centered
+    const starScale = useTransform(scrollY, [0, 1], [1, 5]); // Stars stretch
+    const starOpacity = useTransform(scrollY, [0, 0.5, 1], [0.5, 1, 0]); // Stars flash then fade
+    const bgBlur = useTransform(scrollY, [0, 0.5], [0, 20]); // Blur effect
 
     // Parallax Mouse Effect
     const mouseX = useMotionValue(0);
@@ -42,10 +46,16 @@ const Home = () => {
         <div ref={containerRef} className="relative h-screen min-h-[900px] w-full overflow-hidden flex flex-col items-center justify-center perspective-px">
             {/* Background - Deep Space Parallax (Restored from Celestial Theme) */}
             <motion.div
-                style={{ x: bgMoveX, y: bgMoveY }}
-                className="absolute inset-[-5%] w-[110%] h-[110%] bg-celestial-900 z-0"
+                style={{
+                    x: bgMoveX,
+                    y: bgMoveY,
+                    scale: starScale,
+                    opacity: starOpacity,
+                    filter: useTransform(bgBlur, (v) => `blur(${v}px)`) // Apply dynamic blur 
+                }}
+                className="absolute inset-[-5%] w-[110%] h-[110%] bg-celestial-900 z-0 origin-center"
             >
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a1c3b] via-[#050a14] to-black" />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[var(--gradient-overlay-start)] via-[var(--gradient-overlay-mid)] to-black" />
                 <div className="absolute inset-0 opacity-20 bg-[size:40px_40px] bg-[linear-gradient(rgba(0,243,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,243,255,0.03)_1px,transparent_1px)]" />
                 {/* Random Stars */}
                 {[...Array(50)].map((_, i) => (
@@ -93,9 +103,19 @@ const Home = () => {
                                 style={{ transformStyle: "preserve-3d", transform: `translateZ(${Math.sin(i) * 50}px)` }}
                             >
                                 {/* Front Face */}
-                                <div className={`absolute inset-0 w-full h-full bg-gradient-to-t ${i % 2 === 0 ? 'from-neon-blue/20 to-neon-blue' : 'from-neon-purple/20 to-neon-purple'} border-t border-white/50 opacity-80 backdrop-blur-sm rounded-t-sm`} />
+                                <div
+                                    className="absolute inset-0 w-full h-full border-t border-white/50 opacity-80 backdrop-blur-sm rounded-t-sm"
+                                    style={{
+                                        background: `linear-gradient(to top, 
+                                            ${i % 2 === 0 ? 'var(--chart-1)' : 'var(--chart-2)'}00, 
+                                            ${i % 2 === 0 ? 'var(--chart-1)' : 'var(--chart-2)'})`
+                                    }}
+                                />
                                 {/* Top Glow */}
-                                <div className={`absolute top-0 w-full h-1 ${i % 2 === 0 ? 'bg-neon-blue' : 'bg-neon-purple'} shadow-[0_0_20px_currentColor]`} />
+                                <div
+                                    className="absolute top-0 w-full h-1 shadow-[0_0_20px_currentColor]"
+                                    style={{ backgroundColor: i % 2 === 0 ? 'var(--chart-1)' : 'var(--chart-2)', color: i % 2 === 0 ? 'var(--chart-1)' : 'var(--chart-2)' }}
+                                />
                                 {/* Value Tag on Hover */}
                                 <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-xs font-mono text-white transition-opacity bg-black/80 px-2 py-1 rounded">
                                     {Math.round(value * 100)}%
@@ -104,11 +124,11 @@ const Home = () => {
                         ))}
 
                         {/* Floating Trend Line (Spline) */}
-                        <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-[0_0_10px_rgba(251,191,36,0.6)]" style={{ transform: "translateZ(60px)" }}>
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-[0_0_10px_var(--chart-line)]" style={{ transform: "translateZ(60px)" }}>
                             <motion.path
                                 d="M0,350 Q200,350 400,100 T800,350"
                                 fill="none"
-                                stroke="#fbbf24"
+                                stroke="var(--chart-line)"
                                 strokeWidth="3"
                                 strokeDasharray="10 10"
                                 initial={{ pathLength: 0, opacity: 0 }}
@@ -125,7 +145,7 @@ const Home = () => {
                                     cx={x}
                                     cy={i === 1 ? 100 : 250} // Approximate animation positions
                                     r="4"
-                                    fill="#fbbf24"
+                                    fill="var(--chart-line)"
                                     animate={{ r: [4, 6, 4] }}
                                     transition={{ duration: 1, repeat: Infinity }}
                                 />
